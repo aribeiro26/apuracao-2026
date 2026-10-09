@@ -7,6 +7,7 @@ import { Acompanhar } from "@/components/Acompanhar";
 import { Apresentador } from "@/components/Apresentador";
 import { CandidatoCard } from "@/components/CandidatoCard";
 import { GraficoEstados, GraficoPizza, MapaBrasil, MensagemPlacar, MosaicoMunicipios, primeiroNome, textoDaFrente } from "@/components/DisputaVisual";
+import { Perguntas } from "@/components/Perguntas";
 import { BotaoDoar } from "@/components/Doar";
 import { BotaoTema, SeletorIdioma, useI18n } from "@/components/LocaleProvider";
 import { somarCidades, type Candidato, type CidadeApurada, type Modo, type Resultado } from "@/lib/conta";
@@ -208,6 +209,11 @@ export function PainelApp() {
 
   const opcoesUf = visao === "governador" ? UFS : UFS_PRESIDENTE;
   const nacional = painel?.somaEstados.candidatos.length ? painel.somaEstados : painel?.presidente ?? null;
+  const resultadoDaTela = visao === "governador" && uf
+    ? painel?.governadores.find((item) => item.uf === uf) ?? null
+    : uf
+      ? painel?.unidades.find((item) => item.uf === uf) ?? null
+      : nacional;
   const falas = useMemo(() => {
     if (!nacional) return [];
     const par = parDaDisputa(nacional.candidatos);
@@ -278,6 +284,10 @@ export function PainelApp() {
       </header>
 
       <Contagem />
+
+      {resultadoDaTela && (
+        <Perguntas candidatos={resultadoDaTela.candidatos} validos={resultadoDaTela.totais.votosValidos} idioma={idioma} />
+      )}
 
       <div className="sticky top-12 z-20 -mx-4 mt-6 border-y border-[var(--line)] bg-[var(--bg)]/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
         <div className="grid gap-3 md:grid-cols-[auto_1fr_1fr]">
