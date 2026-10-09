@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #efe6d8;
+  --ink: #1c1916;
+  --paper: #fffdf8;
+  --line: #e3d6c4;
+  --muted: #62594e;
+  --green: #0e6b4f;
+  --green-soft: #e6f4ee;
+  --mark: #9a3412;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100%;
+  background:
+    radial-gradient(900px 420px at 0% -10%, rgba(255, 250, 240, 0.9), transparent 55%),
+    var(--bg);
+  color: var(--ink);
+}
+
+::selection {
+  background: #d7efe4;
+}
+
+select,
+input,
+button {
+  font: inherit;
+}
+
+select,
+input {
+  min-height: 48px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .pulso {
+    animation: none !important;
+  }
+}
