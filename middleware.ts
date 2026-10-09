@@ -4,10 +4,11 @@ import { temaDe } from "@/lib/tema";
 import { contextoDe, registrar } from "@/lib/siem";
 
 function politica(nonce: string): string {
+  const dev = process.env.NODE_ENV !== "production";
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
-    `style-src 'self' 'nonce-${nonce}'`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ""}`,
+    `style-src 'self' 'nonce-${nonce}'${dev ? " 'unsafe-inline'" : ""}`,
     "style-src-attr 'unsafe-inline'",
     "img-src 'self' blob: https://resultados.tse.jus.br",
     "font-src 'self'",
@@ -15,9 +16,9 @@ function politica(nonce: string): string {
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-    "frame-ancestors 'none'",
+    ...(process.env.NODE_ENV === "production" ? ["frame-ancestors 'none'"] : []),
     "frame-src 'none'",
-    "worker-src 'none'",
+    "worker-src 'self'",
     "manifest-src 'self'",
   ].join("; ");
 }

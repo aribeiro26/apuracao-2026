@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { carregarPainel, lerLoteMunicipios, lerMunicipio, municipiosDoEstado } from "@/app/acoes";
+import { Acompanhar } from "@/components/Acompanhar";
 import { Apresentador } from "@/components/Apresentador";
 import { CandidatoCard } from "@/components/CandidatoCard";
 import { GraficoEstados, MapaBrasil, MensagemPlacar, MosaicoMunicipios, primeiroNome, textoDaFrente } from "@/components/DisputaVisual";
@@ -453,6 +454,7 @@ export function PainelApp() {
       <footer className="mt-12 border-t border-[var(--line)] pt-4 text-sm text-[var(--muted)]">
         {copy.rodape}
       </footer>
+      <Acompanhar presidente={nacional} governadores={painel?.governadores ?? []} />
       <Apresentador linhas={falas} />
     </div>
     </>

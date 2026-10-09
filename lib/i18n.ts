@@ -116,6 +116,21 @@ export type Copy = {
   cenarioEmpate: string;
   ativarAudio: string;
   pararAudio: string;
+  instalarTitulo: string;
+  instalarTexto: string;
+  instalarLocal: string;
+  instalarVoz: string;
+  instalarPopup: string;
+  instalarVozApp: string;
+  instalarPopupApp: string;
+  instalarAgoraNao: string;
+  instalarIos: string;
+  acompanharDeNovo: string;
+  avisoTitulo: string;
+  boletimPresidente: (texto: string) => string;
+  boletimGovernador: (estado: string, texto: string) => string;
+  boletimCandidato: (nome: string, partido: string, pct: string) => string;
+  vozConfirmada: string;
 };
 
 const ptBR: Copy = {
@@ -239,6 +254,21 @@ const ptBR: Copy = {
   cenarioEmpate: "Empate. Ninguém está eleito.",
   ativarAudio: "Ouvir",
   pararAudio: "Sem áudio",
+  instalarTitulo: "Acompanhar a votação",
+  instalarTexto: "Deseja instalar o app e acompanhar a votação em tempo real?",
+  instalarLocal: "Se você permitir a localização, o aviso inclui o governador do seu estado, quando a disputa estiver no segundo turno.",
+  instalarVoz: "Instalar e ouvir",
+  instalarPopup: "Instalar e receber avisos",
+  instalarVozApp: "Ouvir a apuração",
+  instalarPopupApp: "Receber avisos",
+  instalarAgoraNao: "Agora não",
+  instalarIos: "No iPhone, toque em Compartilhar e depois em Adicionar à Tela de Início.",
+  acompanharDeNovo: "Acompanhar ao vivo",
+  avisoTitulo: "Apuração agora",
+  boletimPresidente: (texto) => `Presidência. ${texto}`,
+  boletimGovernador: (estado, texto) => `Governador em ${estado}. ${texto}`,
+  boletimCandidato: (nome, partido, pct) => `${nome}, ${partido}, ${pct}`,
+  vozConfirmada: "Vou avisar a porcentagem por voz.",
 };
 
 const ptPT: Copy = {
@@ -467,6 +497,21 @@ const es: Copy = {
   cenarioEmpate: "Empate. Nadie está elegido.",
   ativarAudio: "Escuchar",
   pararAudio: "Sin audio",
+  instalarTitulo: "Seguir el escrutinio",
+  instalarTexto: "¿Quieres instalar la app y seguir la votación en tiempo real?",
+  instalarLocal: "Si permites la ubicación, el aviso incluye al gobernador de tu estado cuando la disputa esté en segunda vuelta.",
+  instalarVoz: "Instalar y escuchar",
+  instalarPopup: "Instalar y recibir avisos",
+  instalarVozApp: "Escuchar el escrutinio",
+  instalarPopupApp: "Recibir avisos",
+  instalarAgoraNao: "Ahora no",
+  instalarIos: "En el iPhone, toca Compartir y luego Agregar a inicio.",
+  acompanharDeNovo: "Seguir en vivo",
+  avisoTitulo: "Escrutinio ahora",
+  boletimPresidente: (texto) => `Presidencia. ${texto}`,
+  boletimGovernador: (estado, texto) => `Gobernador en ${estado}. ${texto}`,
+  boletimCandidato: (nome, partido, pct) => `${nome}, ${partido}, ${pct}`,
+  vozConfirmada: "Voy a avisar el porcentaje por voz.",
 };
 
 const en: Copy = {
@@ -590,6 +635,21 @@ const en: Copy = {
   cenarioEmpate: "Tie. Nobody is elected.",
   ativarAudio: "Listen",
   pararAudio: "Mute",
+  instalarTitulo: "Follow the count",
+  instalarTexto: "Do you want to install the app and follow the vote in real time?",
+  instalarLocal: "If you allow location, the update also includes your state's governor when that race is in a runoff.",
+  instalarVoz: "Install and listen",
+  instalarPopup: "Install and get alerts",
+  instalarVozApp: "Hear the count",
+  instalarPopupApp: "Get alerts",
+  instalarAgoraNao: "Not now",
+  instalarIos: "On iPhone, tap Share, then Add to Home Screen.",
+  acompanharDeNovo: "Follow live",
+  avisoTitulo: "Count update",
+  boletimPresidente: (texto) => `President. ${texto}`,
+  boletimGovernador: (estado, texto) => `Governor in ${estado}. ${texto}`,
+  boletimCandidato: (nome, partido, pct) => `${nome}, ${partido}, ${pct}`,
+  vozConfirmada: "I will call the percentages out loud.",
 };
 
 export const MENSAGENS: Record<Locale, Copy> = { "pt-BR": ptBR, "pt-PT": ptPT, es, en };
