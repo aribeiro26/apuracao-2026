@@ -13,7 +13,7 @@ import { BotaoTema, SeletorIdioma, useI18n } from "@/components/LocaleProvider";
 import { somarCidades, type Candidato, type CidadeApurada, type Modo, type Resultado } from "@/lib/conta";
 import { contarLados, parDaDisputa, quemLidera, vencedorLocal } from "@/lib/placar";
 import { rastreioVisivel } from "@/lib/texto";
-import { numero, percentual, razao } from "@/lib/format";
+import { numero, percentual, razao, corPartido, iniciais } from "@/lib/format";
 import { intlLocale } from "@/lib/locale";
 import { UFS, UFS_PRESIDENTE, nomeLocal } from "@/lib/uf";
 
@@ -349,6 +349,11 @@ export function PainelApp() {
 
       {painel && !uf && (
         <div className="mt-8 space-y-10">
+          <ListaEleitos
+            painel={painel}
+            visao={visao}
+            onAbrir={(item) => navegar({ uf: item.uf === "br" ? "" : item.uf, visao: item.cargo })}
+          />
           {visao !== "governador" && (
             <section className="space-y-4">
               <Cabecalho
@@ -619,6 +624,82 @@ function Disputa({ resultado }: { resultado: Resultado }) {
         </details>
       )}
     </div>
+  );
+}
+
+function ListaEleitos({
+  painel,
+  visao,
+  onAbrir,
+}: {
+  painel: Painel;
+  visao: Visao;
+  onAbrir: (item: { uf: string; cargo: CargoLocal }) => void;
+}) {
+  const { copy, locale } = useI18n();
+  const idioma = intlLocale(locale);
+  const fontes = [
+    ...(visao === "governador" ? [] : [painel.presidente]),
+    ...(visao === "presidente" ? [] : painel.governadores),
+  ];
+  const itens = fontes.flatMap((resultado) =>
+    resultado.candidatos.filter((candidato) => candidato.fase === "eleito").map((candidato) => ({ candidato, resultado })),
+  );
+  if (itens.length === 0) return null;
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="font-serif text-3xl">Quem já está eleito</h2>
+        <p className="text-sm text-[var(--muted)]">{itens.length === 1 ? "1 eleito" : `${itens.length} eleitos`}</p>
+      </div>
+      <p className="text-sm text-[var(--muted)]">O partido é o da urna, ao lado do nome.</p>
+      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {itens.map(({ candidato, resultado }) => {
+          const cargo = resultado.cargo === "presidente" ? copy.presidente : copy.governador;
+          const lugar = resultado.uf === "br" ? copy.brasilInteiro : nomeLocal(resultado.uf, locale);
+          const turno = resultado.turno === 2 ? copy.segundoTurno : "1º turno";
+          const sigla = candidato.partido || copy.semPartido;
+          return (
+            <li key={`${resultado.cargo}:${resultado.uf}:${candidato.sqcand}`}>
+              <button
+                type="button"
+                onClick={() => onAbrir({ uf: resultado.uf, cargo: resultado.cargo })}
+                className="flex w-full items-center gap-3 rounded-3xl border border-[var(--line)] bg-[var(--paper)] p-4 text-left shadow-card"
+              >
+                <FotoEleito nome={candidato.nome} fotos={candidato.fotos} />
+                <span className="min-w-0">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="font-serif text-xl leading-tight">{candidato.nome}</span>
+                    <span className="rounded-full px-2 py-0.5 text-xs font-bold tracking-wide text-white" style={{ background: corPartido(candidato.partido) }}>
+                      {sigla}
+                    </span>
+                  </span>
+                  <span className="mt-1 block text-sm text-[var(--muted)]">
+                    {cargo} · {lugar} · {candidato.partidoNome || sigla} · {turno}
+                  </span>
+                  <span className="mt-1 block text-sm tabular-nums">
+                    {percentual(razao(candidato.votos, resultado.totais.votosValidos), 2, idioma)} · {numero(candidato.votos, idioma)}
+                  </span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+function FotoEleito({ nome, fotos }: { nome: string; fotos: string[] }) {
+  const [indice, setIndice] = useState(0);
+  const url = fotos[indice]?.startsWith("https://resultados.tse.jus.br/") ? fotos[indice] : "";
+  if (!url) {
+    return (
+      <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-[var(--track)] text-sm font-semibold">{iniciais(nome)}</span>
+    );
+  }
+  return (
+    <img src={url} alt="" width={56} height={56} className="h-14 w-14 shrink-0 rounded-full object-cover" onError={() => setIndice((atual) => atual + 1)} />
   );
 }
 
