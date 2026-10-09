@@ -25,14 +25,33 @@ export function CandidatoCard({
 
   return (
     <article className="flex min-w-0 flex-col gap-4 rounded-3xl border border-[var(--line)] bg-[var(--paper)] p-4 shadow-card sm:p-5">
-      <div className="flex items-center gap-3">
+      <div className="flex items-start gap-3">
         <Foto nome={candidato.nome} fotos={candidato.fotos} />
-        <div className="min-w-0">
-          <p className="truncate font-serif text-2xl leading-tight">{candidato.nome}</p>
-          <p className="truncate text-sm text-[var(--muted)]">
-            {candidato.partido || copy.semPartido} · {candidato.numero || "—"}
-            {candidato.vice ? ` · ${copy.vice} ${candidato.vice}` : ""}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-serif text-2xl leading-tight">{candidato.nome}</p>
+            <span
+              className="rounded-full px-2.5 py-1 text-xs font-bold tracking-wide text-white"
+              style={{ background: cor }}
+            >
+              {candidato.partido || copy.semPartido}
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            {candidato.partidoNome || copy.semPartido}
+            {candidato.numero ? ` · ${candidato.numero}` : ""}
           </p>
+          {candidato.coligacao ? (
+            <p className="mt-0.5 text-sm text-[var(--muted)]">
+              {copy.coligacao}: {candidato.coligacao}
+            </p>
+          ) : null}
+          {candidato.vice ? (
+            <p className="mt-0.5 text-sm text-[var(--muted)]">
+              {copy.vice} {candidato.vice}
+              {candidato.vicePartido ? ` · ${candidato.vicePartido}` : ""}
+            </p>
+          ) : null}
         </div>
       </div>
 

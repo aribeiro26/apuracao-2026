@@ -43,7 +43,14 @@ type RawCand = {
   st?: string;
   vap?: string;
   pvap?: string;
-  vs?: { tp?: string; nm?: string; nmu?: string }[];
+  vs?: { tp?: string; nm?: string; nmu?: string; sgp?: string }[];
+};
+
+type RawGrupo = {
+  com?: string;
+  nm?: string;
+  tp?: string;
+  par?: { sg?: string; nm?: string; cand?: RawCand[] }[];
 };
 
 type RawResultado = {
@@ -52,10 +59,7 @@ type RawResultado = {
   hg?: string;
   carg?: {
     cd?: string;
-    agr?: {
-      com?: string;
-      par?: { sg?: string; cand?: RawCand[] }[];
-    }[];
+    agr?: RawGrupo[];
   }[];
   s?: { ts?: string; st?: string };
   e?: { te?: string; c?: string; a?: string };
@@ -146,13 +150,25 @@ function candidatosDe(
           const vice = (cand.vs ?? []).find((pessoa) => pessoa.tp === "v");
           const sqcand = soDigitos(cand.sqcand, 12);
           const nomeVice = vice ? rotulo(vice.nmu || vice.nm) : "";
+          const sigla = (textoPlano(partido.sg, 24) || (grupo.tp === "i" ? textoPlano(grupo.com, 24) : "")).toUpperCase();
+          const nomePartido = rotulo(partido.nm) || (grupo.tp === "i" ? rotulo(grupo.nm) : "");
+          const nomeColigacao = grupo.tp === "c" ? rotulo(grupo.nm) : "";
+          const membros = grupo.tp === "c" ? textoPlano(grupo.com, 160) : "";
+          const coligacao =
+            nomeColigacao && membros && membros.toUpperCase() !== nomeColigacao.toUpperCase()
+              ? `${nomeColigacao} · ${membros}`
+              : nomeColigacao || membros || null;
+          const vicePartido = vice ? textoPlano(vice.sgp, 24).toUpperCase() : "";
           lista.push({
             sqcand,
             nome: rotulo(cand.nmu || cand.nm, "Candidato"),
             nomeCompleto: cand.nmu && cand.nm ? rotulo(cand.nm) : null,
             numero: soDigitos(cand.n, 6),
-            partido: textoPlano(partido.sg, 24).toUpperCase(),
+            partido: sigla,
+            partidoNome: nomePartido,
+            coligacao,
             vice: nomeVice || null,
+            vicePartido: vicePartido || null,
             votos: inteiro(cand.vap),
             pctTse: percentualTse(cand.pvap),
             situacao: textoPlano(cand.st, 40),

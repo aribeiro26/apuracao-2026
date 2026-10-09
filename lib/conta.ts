@@ -10,7 +10,10 @@ export type Candidato = {
   nomeCompleto: string | null;
   numero: string;
   partido: string;
+  partidoNome: string;
+  coligacao: string | null;
   vice: string | null;
+  vicePartido: string | null;
   votos: number;
   pctTse: number;
   situacao: string;
@@ -62,6 +65,15 @@ export type Diferenca = {
   candidatos: { sqcand: string; nome: string; delta: number }[];
 };
 
+function completarPartido(atual: Candidato, outro: Candidato) {
+  if (!atual.partido && outro.partido) atual.partido = outro.partido;
+  if (!atual.partidoNome && outro.partidoNome) atual.partidoNome = outro.partidoNome;
+  if (!atual.coligacao && outro.coligacao) atual.coligacao = outro.coligacao;
+  if (!atual.vice && outro.vice) atual.vice = outro.vice;
+  if (!atual.vicePartido && outro.vicePartido) atual.vicePartido = outro.vicePartido;
+  if (!atual.numero && outro.numero) atual.numero = outro.numero;
+}
+
 export function faseDe(situacao: string): Fase {
   const texto = situacao
     .normalize("NFD")
@@ -109,7 +121,10 @@ export function somarCidades(
     for (const cand of cidade.candidatos ?? []) {
       const atual = porCandidato.get(cand.sqcand);
       if (!atual) porCandidato.set(cand.sqcand, { ...cand, pctTse: 0 });
-      else atual.votos += cand.votos;
+      else {
+        atual.votos += cand.votos;
+        completarPartido(atual, cand);
+      }
     }
   }
   return {
@@ -142,7 +157,10 @@ export function somarResultados(base: Resultado, partes: Resultado[]): Resultado
     for (const cand of parte.candidatos) {
       const atual = porCandidato.get(cand.sqcand);
       if (!atual) porCandidato.set(cand.sqcand, { ...cand, pctTse: 0 });
-      else atual.votos += cand.votos;
+      else {
+        atual.votos += cand.votos;
+        completarPartido(atual, cand);
+      }
     }
   }
   return {

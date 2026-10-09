@@ -578,7 +578,11 @@ function Disputa({ resultado }: { resultado: Resultado }) {
           <ul className="mt-3 space-y-1">
             {demais.map((cand) => (
               <li key={cand.sqcand} className="flex justify-between gap-3">
-                <span className="min-w-0 truncate">{cand.nome} · {cand.partido}</span>
+                <span className="min-w-0 truncate">
+                  {cand.nome}
+                  {cand.partido ? ` · ${cand.partido}` : ""}
+                  {cand.numero ? ` · ${cand.numero}` : ""}
+                </span>
                 <span className="shrink-0 tabular-nums">{percentual(razao(cand.votos, resultado.totais.votosValidos), 2, idioma)}</span>
               </li>
             ))}
@@ -629,7 +633,10 @@ function MiniEstado({ resultado }: { resultado: Resultado }) {
       <span className="mt-2 block space-y-1 text-sm">
         {dupla.map((cand) => (
           <span key={cand.sqcand} className="flex justify-between gap-2">
-            <span className="truncate">{cand.nome}</span>
+            <span className="truncate">
+              {cand.nome}
+              {cand.partido ? ` · ${cand.partido}` : ""}
+            </span>
             <span className="tabular-nums">{percentual(razao(cand.votos, resultado.totais.votosValidos), 2, idioma)}</span>
           </span>
         ))}

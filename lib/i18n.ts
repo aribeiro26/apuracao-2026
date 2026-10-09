@@ -64,6 +64,7 @@ export type Copy = {
   abstencao: string;
   outrosCandidatos: (n: number) => string;
   semPartido: string;
+  coligacao: string;
   vice: string;
   votosNominais: (n: string) => string;
   tsePublica: (pct: string) => string;
@@ -186,6 +187,7 @@ const ptBR: Copy = {
   abstencao: "Abstenção",
   outrosCandidatos: (n) => `Outros candidatos deste recorte (${n})`,
   semPartido: "Sem partido",
+  coligacao: "Coligação",
   vice: "vice",
   votosNominais: (n) => `${n} votos válidos nominais`,
   tsePublica: (pct) => `TSE publica ${pct}`,
@@ -413,6 +415,7 @@ const es: Copy = {
   abstencao: "Abstención",
   outrosCandidatos: (n) => `Otros candidatos de este recorte (${n})`,
   semPartido: "Sin partido",
+  coligacao: "Coalición",
   vice: "vice",
   votosNominais: (n) => `${n} votos válidos nominales`,
   tsePublica: (pct) => `El TSE publica ${pct}`,
@@ -535,6 +538,7 @@ const en: Copy = {
   abstencao: "Abstention",
   outrosCandidatos: (n) => `Other candidates in this cut (${n})`,
   semPartido: "No party",
+  coligacao: "Coalition",
   vice: "running mate",
   votosNominais: (n) => `${n} valid votes for the candidate`,
   tsePublica: (pct) => `TSE publishes ${pct}`,

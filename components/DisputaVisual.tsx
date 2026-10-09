@@ -23,8 +23,8 @@ export function textoDaFrente(par: Par, resultado: Resultado, copy: Copy, idioma
   const falta = numero(lider.votos - outro.votos + 1, idioma);
   const dois = par.azul.votos + par.vermelho.votos;
   const fechada = dois >= resultado.totais.votosValidos * 0.98;
-  if (fechada && lider.votos > resultado.totais.votosValidos / 2) return copy.maioriaSimples(primeiroNome(lider.nome));
-  return `${copy.naFrente(primeiroNome(lider.nome), numero(lider.votos - outro.votos, idioma))} ${copy.paraPassar(primeiroNome(outro.nome), falta)}`;
+  if (fechada && lider.votos > resultado.totais.votosValidos / 2) return copy.maioriaSimples(comPartido(lider.nome, lider.partido));
+  return `${copy.naFrente(comPartido(lider.nome, lider.partido), numero(lider.votos - outro.votos, idioma))} ${copy.paraPassar(comPartido(outro.nome, outro.partido), falta)}`;
 }
 
 export function MapaBrasil({
@@ -161,11 +161,11 @@ function Legenda({ par, resultado, copy, idioma }: { par: Par | null; resultado:
       <p className="flex flex-wrap gap-4">
         <span className="inline-flex items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full" style={{ background: COR.azul }} />
-          {primeiroNome(par.azul.nome)}
+          {comPartido(par.azul.nome, par.azul.partido)}
         </span>
         <span className="inline-flex items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full" style={{ background: COR.vermelho }} />
-          {primeiroNome(par.vermelho.nome)}
+          {comPartido(par.vermelho.nome, par.vermelho.partido)}
         </span>
       </p>
       {analise ? <p>{analise}</p> : null}
@@ -177,11 +177,22 @@ function textoCenario(par: Par, resultado: Resultado, copy: Copy, idioma: string
   const cenario = cenarioDaDisputa(par, resultado);
   if (cenario.tipo === "segue") return copy.cenarioSegue;
   if (cenario.tipo === "empate") return copy.cenarioEmpate;
-  if (cenario.tipo === "eleito") return copy.cenarioEleito(primeiroNome(cenario.nome));
-  if (cenario.faltam == null) return copy.cenarioAbertoSemConta(primeiroNome(cenario.nome));
-  return copy.cenarioAberto(primeiroNome(cenario.nome), numero(cenario.faltam, idioma));
+  if (cenario.tipo === "eleito") return copy.cenarioEleito(comPartido(cenario.nome, partidoDoNome(par, cenario.nome)));
+  if (cenario.faltam == null) return copy.cenarioAbertoSemConta(comPartido(cenario.nome, partidoDoNome(par, cenario.nome)));
+  return copy.cenarioAberto(comPartido(cenario.nome, partidoDoNome(par, cenario.nome)), numero(cenario.faltam, idioma));
 }
 
 export function primeiroNome(nome: string): string {
   return nome.split(" ")[0] || nome;
+}
+
+function comPartido(nome: string, partido: string): string {
+  const curto = primeiroNome(nome);
+  return partido ? `${curto} (${partido})` : curto;
+}
+
+function partidoDoNome(par: Par, nome: string): string {
+  if (par.azul.nome === nome) return par.azul.partido;
+  if (par.vermelho.nome === nome) return par.vermelho.partido;
+  return "";
 }
