@@ -1,17 +1,38 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { responderPergunta } from "@/app/acoes";
 import { useI18n } from "@/components/LocaleProvider";
+import type { Candidato, Totais } from "@/lib/conta";
 import { intlLocale } from "@/lib/locale";
+import { responderNaHora } from "@/lib/pergunta";
 
 const INTERVALO = 7000;
+const SUGESTOES = ["Quem vai ganhar?", "Quem está na frente?", "O outro ainda passa?"];
 
-export function Apresentador({ linhas }: { linhas: string[] }) {
+type Unidade = { uf: string; nomeUf: string; candidatos: Candidato[]; totais: Totais };
+
+export function Apresentador({
+  linhas,
+  candidatos,
+  totais,
+  turno,
+  unidades,
+}: {
+  linhas: string[];
+  candidatos: Candidato[];
+  totais: Totais | null;
+  turno: 1 | 2;
+  unidades: Unidade[];
+}) {
   const { copy, locale } = useI18n();
   const [aberto, setAberto] = useState(true);
   const [audio, setAudio] = useState(false);
   const [falando, setFalando] = useState(false);
   const [indice, setIndice] = useState(0);
+  const [pergunta, setPergunta] = useState("");
+  const [resposta, setResposta] = useState("");
+  const [consultando, setConsultando] = useState(false);
   const fala = linhas[indice] ?? linhas[0] ?? "";
   const pular = useRef(false);
 
@@ -33,6 +54,26 @@ export function Apresentador({ linhas }: { linhas: string[] }) {
     }
     return dizer(fala, locale, linhas.length, setFalando, setIndice);
   }, [aberto, audio, fala, linhas.length, locale]);
+
+  async function perguntar(texto: string) {
+    const limpo = texto.trim();
+    if (!limpo || consultando) return;
+    setPergunta(limpo);
+    setConsultando(true);
+    setResposta("");
+    const local = responderNaHora(limpo, candidatos, totais, turno, unidades);
+    if (local) {
+      setResposta(local);
+      setConsultando(false);
+      if (audio) falar(local, locale);
+      return;
+    }
+    const json = await responderPergunta(limpo);
+    const textoResposta = json.ok ? json.texto : "O TSE não respondeu agora. Tente de novo em instantes.";
+    setResposta(textoResposta);
+    setConsultando(false);
+    if (audio) falar(textoResposta, locale);
+  }
 
   if (!fala) return null;
 
@@ -68,6 +109,42 @@ export function Apresentador({ linhas }: { linhas: string[] }) {
           {fala}
         </p>
       </div>
+      <form
+        className="space-y-2 border-t border-[var(--line)] px-4 py-3"
+        onSubmit={(evento) => {
+          evento.preventDefault();
+          void perguntar(pergunta);
+        }}
+      >
+        <p className="text-xs text-[var(--muted)]">Pergunta livre. Ela responde com o arquivo do TSE.</p>
+        <div className="flex gap-2">
+          <input
+            value={pergunta}
+            onChange={(evento) => setPergunta(evento.target.value)}
+            maxLength={160}
+            placeholder="em Araraquara o Flávio ganhou?"
+            className="min-h-11 min-w-0 flex-1 rounded-full border border-[var(--line)] bg-[var(--paper)] px-3 text-sm"
+            aria-label="Pergunta para a apresentadora"
+          />
+          <button type="submit" className="min-h-11 shrink-0 rounded-full bg-[var(--ink)] px-3 text-sm text-[var(--paper)]" disabled={consultando}>
+            {consultando ? "…" : "Perguntar"}
+          </button>
+        </div>
+        {resposta ? <p className="text-sm leading-snug">{resposta}</p> : null}
+        <div className="max-h-28 space-y-2 overflow-y-auto">
+          <p className="text-xs text-[var(--muted)]">Perguntas</p>
+          {SUGESTOES.map((item) => (
+            <button
+              key={item}
+              type="button"
+              className="block w-full rounded-2xl border border-[var(--line)] px-3 py-2 text-left text-sm"
+              onClick={() => void perguntar(item)}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      </form>
       <div className="flex items-center justify-between gap-3 px-4 pb-3">
         {linhas.length > 1 ? (
           <div className="flex items-center gap-2">
@@ -106,6 +183,17 @@ export function Apresentador({ linhas }: { linhas: string[] }) {
       </div>
     </aside>
   );
+}
+
+function falar(texto: string, locale: "pt-BR" | "pt-PT" | "es" | "en") {
+  const sintese = window.speechSynthesis;
+  sintese.cancel();
+  const frase = new SpeechSynthesisUtterance(texto);
+  const idioma = intlLocale(locale);
+  frase.lang = idioma;
+  const voz = sintese.getVoices().find((item) => item.lang.toLowerCase().startsWith(idioma.slice(0, 2).toLowerCase()));
+  if (voz) frase.voice = voz;
+  sintese.speak(frase);
 }
 
 function dizer(

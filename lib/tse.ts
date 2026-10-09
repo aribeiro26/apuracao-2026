@@ -361,6 +361,22 @@ export async function listarMunicipios(cargo: Cargo, uf: string): Promise<Munici
   throw ultimoErro instanceof Error ? ultimoErro : new NaoPublicado("Lista de municípios indisponível.");
 }
 
+export async function listarTodasCidades(): Promise<{ uf: string; codigo: string; nome: string }[]> {
+  const par = await alvos("presidente");
+  const url = `${BASE}/${CICLO}/${par.primeiro.codigo}/config/mun-e${par.primeiro.codigo.padStart(6, "0")}-cm.json`;
+  const cfg = await baixarJson<{ abr?: { cd?: string; mu?: { cd?: string; nm?: string }[] }[] }>(url, 3600);
+  const lista: { uf: string; codigo: string; nome: string }[] = [];
+  for (const bloco of cfg.abr ?? []) {
+    const uf = bloco.cd?.toLowerCase() ?? "";
+    if (!/^[a-z]{2}$/.test(uf)) continue;
+    for (const mu of bloco.mu ?? []) {
+      if (!/^\d{5}$/.test(mu.cd ?? "") || !mu.nm) continue;
+      lista.push({ uf, codigo: mu.cd as string, nome: rotulo(mu.nm, "Município") });
+    }
+  }
+  return lista;
+}
+
 async function codigoDaLeitura(cargo: Cargo, uf: string): Promise<{ ativo: Alvo; primeiro: Alvo }> {
   const par = await alvos(cargo);
   const atual = await obterResultado(cargo, uf);

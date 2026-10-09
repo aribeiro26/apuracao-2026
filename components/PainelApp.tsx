@@ -460,7 +460,18 @@ export function PainelApp() {
         {copy.rodape}
       </footer>
       <Acompanhar presidente={nacional} governadores={painel?.governadores ?? []} />
-      <Apresentador linhas={falas} />
+      <Apresentador
+        linhas={falas}
+        candidatos={nacional?.candidatos ?? []}
+        totais={nacional?.totais ?? null}
+        turno={nacional?.turno ?? 1}
+        unidades={(painel?.unidades ?? []).map((item) => ({
+          uf: item.uf,
+          nomeUf: item.nomeUf,
+          candidatos: item.candidatos,
+          totais: item.totais,
+        }))}
+      />
     </div>
     </>
   );

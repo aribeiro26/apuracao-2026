@@ -3,13 +3,16 @@
 import { headers } from "next/headers";
 import { ipConfiavel } from "@/lib/ip";
 import { consumir, entrar, sair } from "@/lib/limite";
-import { contextoDe, registrar, type Contexto } from "@/lib/siem";
+import { acharCidade, fraseDoLugar } from "@/lib/pergunta";
 import { pngDoPix } from "@/lib/pix";
+import { contextoDe, registrar, type Contexto } from "@/lib/siem";
+import { textoPlano } from "@/lib/texto";
 import {
   PedidoInvalido,
   lerCidade,
   lerLote,
   listarMunicipios,
+  listarTodasCidades,
   montarPainel,
   obterResultado,
   type CidadeApurada,
@@ -44,6 +47,10 @@ const REGRAS: Record<string, Regra[]> = {
   pix: [
     { escopo: "ip", max: 10, janelaMs: 60_000, vagas: 2 },
     { escopo: "todos", max: 120, janelaMs: 60_000, vagas: 6 },
+  ],
+  pergunta: [
+    { escopo: "ip", max: 20, janelaMs: 60_000, vagas: 2 },
+    { escopo: "todos", max: 200, janelaMs: 60_000, vagas: 6 },
   ],
 };
 
@@ -186,6 +193,29 @@ export async function lerLoteMunicipios(
       try {
         const lote = await lerLote(cargoOk, uf, offsetOk, 8);
         return { ok: true as const, ...lote };
+      } catch (erro) {
+        return falhaDe(erro);
+      }
+    }),
+  );
+}
+
+export async function responderPergunta(texto: string): Promise<({ ok: true; texto: string } & { rastreio: string }) | Falha> {
+  const limpo = textoPlano(texto, 160);
+  return auditar("pergunta", {}, () =>
+    comCota("pergunta", async () => {
+      if (limpo.length < 3) return { ok: true as const, texto: "Escreva o nome da cidade e o candidato." };
+      try {
+        const cidade = acharCidade(limpo, await listarTodasCidades());
+        if (!cidade) return { ok: true as const, texto: "Não achei esse município na lista do TSE. Tente o nome da cidade." };
+        const [lida, oficial] = await Promise.all([
+          lerCidade("presidente", cidade.uf, cidade.codigo),
+          obterResultado("presidente", cidade.uf),
+        ]);
+        if (!lida.ok || !lida.candidatos || !lida.totais) {
+          return { ok: true as const, texto: `O TSE ainda não publicou o arquivo de ${cidade.nome}.` };
+        }
+        return { ok: true as const, texto: fraseDoLugar(cidade.nome, oficial.turno, lida.candidatos, lida.totais, limpo) };
       } catch (erro) {
         return falhaDe(erro);
       }
