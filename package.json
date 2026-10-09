@@ -5,7 +5,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "conferir": "tsx scripts/conferir-ac.ts"
+    "conferir": "tsx scripts/conferir-ac.ts",
+    "teste": "node --import tsx --test --test-timeout 60000 lib/pergunta.teste.ts"
   },
   "dependencies": {
     "next": "^15.5.4",
