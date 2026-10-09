@@ -60,19 +60,23 @@ export function Apresentador({
     if (!limpo || consultando) return;
     setPergunta(limpo);
     setConsultando(true);
-    setResposta("");
-    const local = responderNaHora(limpo, candidatos, totais, turno, unidades);
-    if (local) {
-      setResposta(local);
+    setResposta("Lendo o arquivo do TSE…");
+    try {
+      const local = responderNaHora(limpo, candidatos, totais, turno, unidades);
+      if (local) {
+        setResposta(local);
+        if (audio) falar(local, locale);
+        return;
+      }
+      const json = await responderPergunta(limpo);
+      const textoResposta = json.ok ? json.texto : "O TSE não respondeu agora. Tente de novo em instantes.";
+      setResposta(textoResposta);
+      if (audio) falar(textoResposta, locale);
+    } catch {
+      setResposta("O TSE não respondeu agora. Tente de novo em instantes.");
+    } finally {
       setConsultando(false);
-      if (audio) falar(local, locale);
-      return;
     }
-    const json = await responderPergunta(limpo);
-    const textoResposta = json.ok ? json.texto : "O TSE não respondeu agora. Tente de novo em instantes.";
-    setResposta(textoResposta);
-    setConsultando(false);
-    if (audio) falar(textoResposta, locale);
   }
 
   if (!fala) return null;
