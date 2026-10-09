@@ -23,50 +23,8 @@ export function textoDaFrente(par: Par, resultado: Resultado, copy: Copy, idioma
   const falta = numero(lider.votos - outro.votos + 1, idioma);
   const dois = par.azul.votos + par.vermelho.votos;
   const fechada = dois >= resultado.totais.votosValidos * 0.98;
-  if (fechada && lider.votos > resultado.totais.votosValidos / 2) return copy.maioriaSimples(comPartido(lider.nome, lider.partido));
-  return `${copy.naFrente(comPartido(lider.nome, lider.partido), numero(lider.votos - outro.votos, idioma))} ${copy.paraPassar(comPartido(outro.nome, outro.partido), falta)}`;
-}
-
-export function GraficoPizza({ resultado, copy }: { resultado: Resultado; copy: Copy }) {
-  const par = parDaDisputa(resultado.candidatos);
-  if (!par) return null;
-  const total = par.azul.votos + par.vermelho.votos;
-  const fatia = total > 0 ? par.azul.votos / total : 0;
-  const raio = 54;
-  const volta = 2 * Math.PI * raio;
-  const azul = volta * fatia;
-  return (
-    <section>
-      <h3 className="text-lg font-semibold tracking-tight">{copy.graficoTitulo}</h3>
-      <div className="mt-3 flex items-center gap-4">
-        <svg viewBox="0 0 140 140" className="h-36 w-36 shrink-0" role="img" aria-label={copy.graficoTitulo}>
-          <circle cx="70" cy="70" r={raio} fill="none" stroke={total > 0 ? COR.vermelho : COR.neutro} strokeWidth="22" />
-          {total > 0 && (
-            <circle
-              cx="70"
-              cy="70"
-              r={raio}
-              fill="none"
-              stroke={COR.azul}
-              strokeWidth="22"
-              strokeDasharray={`${azul} ${volta - azul}`}
-              transform="rotate(-90 70 70)"
-            />
-          )}
-        </svg>
-        <ul className="space-y-2 text-sm">
-          <li className="flex items-center gap-2">
-            <span className="h-3 w-3 rounded-full" style={{ background: COR.azul }} />
-            {primeiroNome(par.azul.nome)} {total > 0 ? `${Math.round(fatia * 100)}%` : "—"}
-          </li>
-          <li className="flex items-center gap-2">
-            <span className="h-3 w-3 rounded-full" style={{ background: COR.vermelho }} />
-            {primeiroNome(par.vermelho.nome)} {total > 0 ? `${Math.round((1 - fatia) * 100)}%` : "—"}
-          </li>
-        </ul>
-      </div>
-    </section>
-  );
+  if (fechada && lider.votos > resultado.totais.votosValidos / 2) return copy.maioriaSimples(primeiroNome(lider.nome));
+  return `${copy.naFrente(primeiroNome(lider.nome), numero(lider.votos - outro.votos, idioma))} ${copy.paraPassar(primeiroNome(outro.nome), falta)}`;
 }
 
 export function MapaBrasil({
@@ -90,10 +48,11 @@ export function MapaBrasil({
     <section>
       <h3 className="text-lg font-semibold tracking-tight">{copy.mapaTitulo}</h3>
       <Legenda par={par} resultado={resultado} copy={copy} idioma={idioma} />
-      <svg viewBox="0 0 400 430" className="mt-3 h-auto w-full" role="img" aria-label={copy.mapaTitulo}>
+      <svg viewBox="0 0 400 430" className="mt-3 h-auto w-full" role="group" aria-label={copy.mapaTitulo}>
         {Object.entries(MAPA_BRASIL).map(([sigla, d]) => {
           const unidade = nacional.get(sigla);
           const lado = par && unidade ? vencedorLocal(par, unidade.candidatos) : "neutro";
+          const nome = nomeLocal(sigla, locale);
           return (
             <path
               key={sigla}
@@ -102,9 +61,18 @@ export function MapaBrasil({
               stroke="#ffffff"
               strokeWidth={0.8}
               className="cursor-pointer"
+              role="button"
+              tabIndex={0}
+              aria-label={copy.abrirLugar(nome)}
               onClick={() => onEscolher(sigla)}
+              onKeyDown={(evento) => {
+                if (evento.key === "Enter" || evento.key === " ") {
+                  evento.preventDefault();
+                  onEscolher(sigla);
+                }
+              }}
             >
-              <title>{nomeLocal(sigla, locale)}</title>
+              <title>{nome}</title>
             </path>
           );
         })}
@@ -146,24 +114,20 @@ export function GraficoEstados({
       <Legenda par={par} resultado={resultado} copy={copy} idioma={idioma} />
       <ul className="mt-3 max-h-[32rem] space-y-2 overflow-auto pr-1">
         {linhas.map((linha) => {
-          const vazio = linha.total <= 0;
-          const fatiaAzul = vazio ? 0 : (linha.azul / linha.total) * 100;
+          const fatiaAzul = linha.total ? (linha.azul / linha.total) * 100 : 0;
+          const fatiaVermelho = linha.total ? 100 - fatiaAzul : 0;
           return (
             <li key={linha.uf}>
               <button type="button" className="w-full text-left" onClick={() => onEscolher(linha.uf)}>
                 <span className="flex items-baseline justify-between gap-3 text-sm">
                   <span>{nomeLocal(linha.uf, locale)}</span>
                   <span className="tabular-nums text-[var(--muted)]">
-                    {vazio ? "—" : `${percentual(fatiaAzul, 0, idioma)} · ${percentual(100 - fatiaAzul, 0, idioma)}`}
+                    {percentual(fatiaAzul, 0, idioma)} · {percentual(fatiaVermelho, 0, idioma)}
                   </span>
                 </span>
-                <span className="mt-1 flex h-4 overflow-hidden rounded-full bg-[var(--line)]">
-                  {!vazio && (
-                    <>
-                      <span style={{ width: `${fatiaAzul}%`, background: COR.azul }} />
-                      <span style={{ width: `${100 - fatiaAzul}%`, background: COR.vermelho }} />
-                    </>
-                  )}
+                <span className="mt-1 flex h-2 overflow-hidden rounded-full bg-[var(--line)]">
+                  <span className="h-full" style={{ width: `${fatiaAzul}%`, background: COR.azul }} />
+                  <span className="h-full" style={{ width: `${fatiaVermelho}%`, background: COR.vermelho }} />
                 </span>
               </button>
             </li>
@@ -190,10 +154,10 @@ export function MosaicoMunicipios({
     <section>
       <h3 className="text-lg font-semibold tracking-tight">{copy.municipiosTitulo}</h3>
       <Legenda par={par} resultado={referencia} copy={copy} idioma={idioma} />
-      <div className="mt-3 flex max-h-64 flex-wrap gap-1 overflow-auto">
+      <div className="mt-3 flex max-h-64 flex-wrap gap-1 overflow-auto" role="img" aria-label={copy.municipiosTitulo}>
         {cidades.map((cidade) => {
           const lado = par ? vencedorLocal(par, cidade.candidatos) : "neutro";
-          return <span key={cidade.codigo} title={cidade.nome} className="h-3 w-3 rounded-sm" style={{ background: COR[lado] }} />;
+          return <span key={cidade.codigo} title={cidade.nome} aria-hidden="true" className="h-3 w-3 rounded-sm" style={{ background: COR[lado] }} />;
         })}
       </div>
     </section>
@@ -207,12 +171,12 @@ function Legenda({ par, resultado, copy, idioma }: { par: Par | null; resultado:
     <div className="mt-2 space-y-1 text-sm text-[var(--muted)]">
       <p className="flex flex-wrap gap-4">
         <span className="inline-flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full" style={{ background: COR.azul }} />
-          {comPartido(par.azul.nome, par.azul.partido)}
+          <span className="h-2.5 w-2.5 rounded-full" style={{ background: COR.azul }} aria-hidden="true" />
+          {primeiroNome(par.azul.nome)}
         </span>
         <span className="inline-flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full" style={{ background: COR.vermelho }} />
-          {comPartido(par.vermelho.nome, par.vermelho.partido)}
+          <span className="h-2.5 w-2.5 rounded-full" style={{ background: COR.vermelho }} aria-hidden="true" />
+          {primeiroNome(par.vermelho.nome)}
         </span>
       </p>
       {analise ? <p>{analise}</p> : null}
@@ -224,22 +188,11 @@ function textoCenario(par: Par, resultado: Resultado, copy: Copy, idioma: string
   const cenario = cenarioDaDisputa(par, resultado);
   if (cenario.tipo === "segue") return copy.cenarioSegue;
   if (cenario.tipo === "empate") return copy.cenarioEmpate;
-  if (cenario.tipo === "eleito") return copy.cenarioEleito(comPartido(cenario.nome, partidoDoNome(par, cenario.nome)));
-  if (cenario.faltam == null) return copy.cenarioAbertoSemConta(comPartido(cenario.nome, partidoDoNome(par, cenario.nome)));
-  return copy.cenarioAberto(comPartido(cenario.nome, partidoDoNome(par, cenario.nome)), numero(cenario.faltam, idioma));
+  if (cenario.tipo === "eleito") return copy.cenarioEleito(primeiroNome(cenario.nome));
+  if (cenario.faltam == null) return copy.cenarioAbertoSemConta(primeiroNome(cenario.nome));
+  return copy.cenarioAberto(primeiroNome(cenario.nome), numero(cenario.faltam, idioma));
 }
 
 export function primeiroNome(nome: string): string {
   return nome.split(" ")[0] || nome;
-}
-
-function comPartido(nome: string, partido: string): string {
-  const curto = primeiroNome(nome);
-  return partido ? `${curto} (${partido})` : curto;
-}
-
-function partidoDoNome(par: Par, nome: string): string {
-  if (par.azul.nome === nome) return par.azul.partido;
-  if (par.vermelho.nome === nome) return par.vermelho.partido;
-  return "";
 }

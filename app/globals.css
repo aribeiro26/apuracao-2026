@@ -62,20 +62,65 @@ button {
   font: inherit;
 }
 
+:focus-visible {
+  outline: 2px solid var(--acao);
+  outline-offset: 3px;
+}
+
 select,
 input {
   min-height: 48px;
 }
 
-.boca-fala {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: boca 0.28s ease-in-out infinite;
+.avatar-respira {
+  transform-origin: center bottom;
+  animation: avatar-respira 3.4s ease-in-out infinite;
 }
 
-@keyframes boca {
+.avatar-fala {
+  transform-origin: center bottom;
+  animation: avatar-fala 0.48s ease-in-out infinite;
+}
+
+.avatar-boca {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: avatar-boca 0.18s ease-in-out infinite;
+}
+
+.avatar-acena {
+  transform-box: fill-box;
+  transform-origin: 58px 78px;
+  animation: avatar-acena 0.55s ease-in-out 3;
+}
+
+.avatar-pisca {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scaleY(0.12);
+}
+
+@keyframes avatar-respira {
   50% {
-    transform: scaleY(0.3);
+    transform: translateY(-1.5px);
+  }
+}
+
+@keyframes avatar-fala {
+  50% {
+    transform: translateY(1px) rotate(-1.4deg);
+  }
+}
+
+@keyframes avatar-boca {
+  50% {
+    transform: scaleY(0.28);
+  }
+}
+
+@keyframes avatar-acena {
+  50% {
+    transform: rotate(-24deg);
   }
 }
 
@@ -84,7 +129,10 @@ input {
     scroll-behavior: auto;
   }
   .pulso,
-  .boca-fala {
+  .avatar-respira,
+  .avatar-fala,
+  .avatar-boca,
+  .avatar-acena {
     animation: none !important;
   }
 }

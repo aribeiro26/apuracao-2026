@@ -23,6 +23,8 @@ export function BotaoDoar() {
     <>
       <button
         type="button"
+        aria-haspopup="dialog"
+        aria-expanded={aberto}
         onClick={() => setAberto(true)}
         className="min-h-11 rounded-full bg-[var(--acao)] px-4 text-sm font-medium text-white"
       >
@@ -41,7 +43,7 @@ export function BotaoDoar() {
               <h2 id={tituloId} className="font-serif text-2xl">
                 {copy.doarTitulo}
               </h2>
-              <button type="button" className="min-h-11 px-2 text-sm underline" onClick={() => setAberto(false)}>
+              <button type="button" className="min-h-11 px-2 text-sm underline" aria-label={copy.fechar} onClick={() => setAberto(false)}>
                 {copy.fechar}
               </button>
             </div>

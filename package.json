@@ -6,9 +6,13 @@
     "build": "next build",
     "start": "next start",
     "conferir": "tsx scripts/conferir-ac.ts",
-    "teste": "node --import tsx --test --test-timeout 60000 lib/pergunta.teste.ts"
+    "teste": "node --import tsx --test --test-timeout 60000 lib/pergunta.teste.ts",
+    "harness": "tsx scripts/harness.ts"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.2.0",
+    "@vercel/blob": "^2.8.1",
+    "drizzle-orm": "^0.45.4",
     "next": "^15.5.4",
     "qrcode": "^1.5.4",
     "react": "^19.1.1",

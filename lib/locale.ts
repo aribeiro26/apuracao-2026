@@ -10,6 +10,13 @@ export function intlLocale(locale: Locale): string {
   return locale;
 }
 
+export function nomeLocale(locale: Locale): string {
+  if (locale === "pt-BR") return "Português (Brasil)";
+  if (locale === "pt-PT") return "Português (Portugal)";
+  if (locale === "es") return "Español";
+  return "English";
+}
+
 /** País (ISO) visto pelo servidor. Sem país conhecido, o inglês é o padrão. */
 export function localeFromCountry(country: string | null | undefined): Locale | null {
   const codigo = (country ?? "").trim().toUpperCase();

@@ -1,23 +1,28 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { carregarPainel, lerLoteMunicipios, lerMunicipio, municipiosDoEstado } from "@/app/acoes";
-import { Acompanhar } from "@/components/Acompanhar";
 import { Apresentador } from "@/components/Apresentador";
-import { CandidatoCard } from "@/components/CandidatoCard";
-import { GraficoEstados, GraficoPizza, MapaBrasil, MensagemPlacar, MosaicoMunicipios, primeiroNome, textoDaFrente } from "@/components/DisputaVisual";
+import { BotoesVoto, CaixaVisitantes, EnqueteTela, useAudiencia } from "@/components/Audiencia";
+import { DataTurno } from "@/components/DataTurno";
 import { Perguntas } from "@/components/Perguntas";
+import { Vitoria } from "@/components/Vitoria";
+import { CandidatoCard } from "@/components/CandidatoCard";
+import { GraficoEstados, MapaBrasil, MensagemPlacar, MosaicoMunicipios, primeiroNome, textoDaFrente } from "@/components/DisputaVisual";
 import { BotaoDoar } from "@/components/Doar";
 import { BotaoTema, SeletorIdioma, useI18n } from "@/components/LocaleProvider";
 import { somarCidades, type Candidato, type CidadeApurada, type Modo, type Resultado } from "@/lib/conta";
-import { contarLados, parDaDisputa, quemLidera, vencedorLocal } from "@/lib/placar";
+import { cenarioDaDisputa, contarLados, eleitosDaApuracao, parDaDisputa, quemLidera, vencedorLocal, type EleitoLista } from "@/lib/placar";
+import { montarPerguntas } from "@/lib/perguntas-apresentador";
 import { rastreioVisivel } from "@/lib/texto";
-import { numero, percentual, razao, corPartido, iniciais } from "@/lib/format";
-import { intlLocale } from "@/lib/locale";
+import { iniciais, numero, percentual, razao } from "@/lib/format";
+import { intlLocale, LOCALES, nomeLocale } from "@/lib/locale";
+import { diasParaEleicao, faseEleicao } from "@/lib/eleicao";
+import { montarTela } from "@/lib/tela-ia";
 import { UFS, UFS_PRESIDENTE, nomeLocal } from "@/lib/uf";
 
-type Visao = "tudo" | "presidente" | "governador";
+type Visao = "tudo" | "presidente" | "governador" | "eleitos";
 type CargoLocal = "presidente" | "governador";
 
 type Painel = {
@@ -40,7 +45,6 @@ type Varredura = {
 type Aviso = { codigo: string; rastreio: string };
 
 const VAZIA: Varredura = { cidades: [], total: 0, modo: "aguardando", turno: 1, erro: null, rastreio: "", pronta: false };
-const ALVO_APURACAO = "2026-10-25T17:00:00-03:00";
 
 export function PainelApp() {
   const params = useSearchParams();
@@ -97,11 +101,6 @@ export function PainelApp() {
   }, [idioma]);
 
   useEffect(() => {
-    if (!uf) return;
-    document.getElementById("resultado")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [uf]);
-
-  useEffect(() => {
     if (!uf || uf === "zz") {
       setMunicipios([]);
       return;
@@ -121,7 +120,7 @@ export function PainelApp() {
   }, [uf]);
 
   useEffect(() => {
-    if (!uf || mun) return;
+    if (!uf || mun || visao === "eleitos") return;
     const controle = new AbortController();
     const querPresidente = visao !== "governador";
     const querGovernador = visao !== "presidente" && uf !== "zz";
@@ -133,7 +132,7 @@ export function PainelApp() {
   }, [uf, mun, visao, aoVivo]);
 
   useEffect(() => {
-    if (!uf || !mun) {
+    if (!uf || !mun || visao === "eleitos") {
       setCidadePresidente(null);
       setCidadeGovernador(null);
       return;
@@ -209,11 +208,6 @@ export function PainelApp() {
 
   const opcoesUf = visao === "governador" ? UFS : UFS_PRESIDENTE;
   const nacional = painel?.somaEstados.candidatos.length ? painel.somaEstados : painel?.presidente ?? null;
-  const resultadoDaTela = visao === "governador" && uf
-    ? painel?.governadores.find((item) => item.uf === uf) ?? null
-    : uf
-      ? painel?.unidades.find((item) => item.uf === uf) ?? null
-      : nacional;
   const falas = useMemo(() => {
     if (!nacional) return [];
     const par = parDaDisputa(nacional.candidatos);
@@ -226,7 +220,9 @@ export function PainelApp() {
       copy.estadosNaFrente(primeiroNome(par.azul.nome), contagem.azul),
       copy.estadosNaFrente(primeiroNome(par.vermelho.nome), contagem.vermelho),
     ];
-    if (lider) frases.push(apurado >= 99.5 ? copy.opiniaoFecha(primeiroNome(lider.nome)) : copy.opiniaoAberta(primeiroNome(lider.nome)));
+    const cenario = cenarioDaDisputa(par, nacional);
+    if (cenario.tipo === "eleito") frases.unshift(copy.cenarioEleito(primeiroNome(cenario.nome)));
+    else if (lider) frases.push(apurado >= 99.5 ? copy.opiniaoFecha(primeiroNome(lider.nome)) : copy.opiniaoAberta(primeiroNome(lider.nome)));
     if (uf && presidenteUf.cidades.length) {
       const azuis = presidenteUf.cidades.filter((cidade) => vencedorLocal(par, cidade.candidatos) === "azul").length;
       const vermelhos = presidenteUf.cidades.filter((cidade) => vencedorLocal(par, cidade.candidatos) === "vermelho").length;
@@ -261,51 +257,115 @@ export function PainelApp() {
     return { apuradas: painel.somaEstados.totais.secoesApuradas, total: painel.somaEstados.totais.secoesTotal };
   }, [painel, mun, uf, visao, cidadePresidente, cidadeGovernador, governadorUf, presidenteUf]);
 
+  const { resumo, setResumo, pronto } = useAudiencia();
+  const fecharEnquete = useCallback(() => {
+    if (pathname === "/enquete") {
+      router.replace("/", { scroll: false });
+      return;
+    }
+    const consulta = new URLSearchParams(params.toString());
+    consulta.delete("enquete");
+    const texto = consulta.toString();
+    router.replace(texto ? `${pathname}?${texto}` : pathname, { scroll: false });
+  }, [params, pathname, router]);
+  const placa = useMemo(() => {
+    if (!painel) return null;
+    if (visao === "governador") {
+      if (!uf || uf === "zz") return null;
+      if (mun && cidadeGovernador) return cidadeGovernador;
+      return placaLocal(painel.governadores.find((item) => item.uf === uf) ?? null, governadorUf, "governador");
+    }
+    if (mun && cidadePresidente) return cidadePresidente;
+    if (uf && uf !== "zz") return placaLocal(painel.unidades.find((item) => item.uf === uf) ?? null, presidenteUf, "presidente");
+    return nacional;
+  }, [painel, visao, uf, mun, cidadeGovernador, cidadePresidente, governadorUf, presidenteUf, nacional]);
+
+  const perguntas = useMemo(() => {
+    const alvo = placa && parDaDisputa(placa.candidatos) ? placa : nacional;
+    const nomeCidade = municipios.find((item) => item.codigo === mun)?.nome;
+    const lugarNome = nomeCidade || alvo?.nomeUf || "";
+    const lugar = alvo ? (alvo.cargo === "governador" ? copy.governadorEm(lugarNome) : copy.presidenteEm(lugarNome)) : "";
+    return montarPerguntas({
+      copy,
+      idioma,
+      lugar,
+      resultado: alvo,
+      unidades: painel?.unidades ?? [],
+      cidades: visao === "governador" ? governadorUf.cidades : presidenteUf.cidades,
+      eleitos: painel ? eleitosDaApuracao([painel.presidente, ...painel.governadores]) : [],
+    });
+  }, [placa, nacional, municipios, mun, copy, idioma, visao, governadorUf.cidades, presidenteUf.cidades, painel]);
+
+  const tela = useMemo(() => {
+    const alvo = placa && parDaDisputa(placa.candidatos) ? placa : nacional;
+    const nomeCidade = municipios.find((item) => item.codigo === mun)?.nome;
+    const lugarNome = nomeCidade || alvo?.nomeUf || "";
+    const lugar = alvo ? (alvo.cargo === "governador" ? copy.governadorEm(lugarNome) : copy.presidenteEm(lugarNome)) : "";
+    return montarTela(alvo, lugar);
+  }, [placa, nacional, municipios, mun, copy]);
+
   return (
     <>
+    <a href="#conteudo" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-[var(--paper)] focus:px-4 focus:py-2">
+      {copy.pularParaConteudo}
+    </a>
+    <EnqueteTela
+      aberta={pathname === "/enquete" || params.get("enquete") === "1"}
+      par={nacional ? parDaDisputa(nacional.candidatos) : null}
+      resumo={resumo}
+      pronto={pronto}
+      onContado={setResumo}
+      onFechar={fecharEnquete}
+    />
+    <Vitoria resultado={placa} />
     <BarraUrnas apuradas={urnas?.apuradas ?? 0} total={urnas?.total ?? 0} />
     <div className="mx-auto w-full max-w-6xl px-4 pb-28 pt-6 sm:px-6">
+      <main id="conteudo">
       <header className="flex flex-col gap-4 border-b border-[var(--line)] pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <p className="text-sm font-medium text-[var(--green)]">{copy.kicker}</p>
           <h1 className="mt-1 font-serif text-4xl leading-none sm:text-5xl">{copy.title}</h1>
           <p className="mt-3 max-w-2xl text-[var(--muted)]">{copy.lead}</p>
+          <BotoesVoto par={nacional ? parDaDisputa(nacional.candidatos) : null} resumo={resumo} onContado={setResumo} />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col items-stretch gap-3 sm:items-end">
+          <CaixaVisitantes resumo={resumo} />
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           <SeletorIdioma />
           <BotaoTema />
           <BotaoDoar />
-          <p className="inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--paper)] px-3 py-2 text-sm">
-            <span className={`pulso h-2.5 w-2.5 rounded-full ${aoVivo ? "animate-pulse bg-[var(--green)]" : "bg-[var(--mark)]"}`} />
+          <p className="inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--paper)] px-3 py-2 text-sm" role="status">
+            <span className={`pulso h-2.5 w-2.5 rounded-full ${aoVivo ? "animate-pulse bg-[var(--green)]" : "bg-[var(--mark)]"}`} aria-hidden="true" />
             {aoVivo ? copy.live : copy.waiting}
             {atualizadoCliente ? ` · ${copy.readAt(atualizadoCliente)}` : ""}
           </p>
+          </div>
         </div>
       </header>
 
-      <Contagem />
+      <DataTurno />
+      <Perguntas resultado={placa ?? nacional} />
 
-      {resultadoDaTela && (
-        <Perguntas candidatos={resultadoDaTela.candidatos} validos={resultadoDaTela.totais.votosValidos} idioma={idioma} />
-      )}
-
-      <div className="sticky top-12 z-20 -mx-4 mt-6 border-y border-[var(--line)] bg-[var(--bg)]/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+      <nav className="sticky top-16 z-20 -mx-4 mt-6 border-y border-[var(--line)] bg-[var(--bg)]/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6" aria-label={copy.filtroVisao}>
         <div className="grid gap-3 md:grid-cols-[auto_1fr_1fr]">
-          <div className="flex rounded-full bg-[var(--paper)] p-1">
-            {(["tudo", "presidente", "governador"] as Visao[]).map((item) => (
+          <div className="flex flex-wrap rounded-full bg-[var(--paper)] p-1" role="group" aria-label={copy.filtroVisao}>
+            {(["tudo", "presidente", "governador", "eleitos"] as Visao[]).map((item) => (
               <button
                 key={item}
                 type="button"
-                onClick={() => navegar({ visao: item })}
+                aria-pressed={visao === item}
+                onClick={() => navegar(item === "eleitos" ? { visao: "eleitos", uf: "", mun: "" } : { visao: item })}
                 className={`min-h-11 rounded-full px-3 text-sm ${visao === item ? "bg-[var(--ink)] text-[var(--paper)]" : ""}`}
               >
-                {item === "tudo" ? copy.tudo : item === "presidente" ? copy.presidente : copy.governador}
+                {rotuloVisao(item, copy)}
               </button>
             ))}
           </div>
-          <label className="block text-sm">
+          <label className="block text-sm" htmlFor="filtro-estado">
             <span className="mb-1 block text-[var(--muted)]">{copy.estado}</span>
             <select
+              id="filtro-estado"
+              aria-label={copy.estado}
               className="w-full rounded-2xl border border-[var(--line)] bg-[var(--paper)] px-3"
               value={uf}
               onChange={(evento) => navegar({ uf: evento.target.value, mun: "" })}
@@ -318,9 +378,11 @@ export function PainelApp() {
               ))}
             </select>
           </label>
-          <label className="block text-sm">
+          <label className="block text-sm" htmlFor="filtro-municipio">
             <span className="mb-1 block text-[var(--muted)]">{copy.municipio}</span>
             <select
+              id="filtro-municipio"
+              aria-label={copy.municipio}
               className="w-full rounded-2xl border border-[var(--line)] bg-[var(--paper)] px-3 disabled:opacity-50"
               value={mun}
               disabled={!uf || uf === "zz"}
@@ -336,7 +398,7 @@ export function PainelApp() {
             </select>
           </label>
         </div>
-      </div>
+      </nav>
 
       {erroPainel && (
         <AvisoErro texto={erroPainel.codigo === "limite" ? copy.erroLimite : copy.erroRede} rastreio={erroPainel.rastreio} />
@@ -345,15 +407,37 @@ export function PainelApp() {
         <AvisoErro texto={erroLocal.codigo === "limite" ? copy.erroLimite : copy.erroMunicipio} rastreio={erroLocal.rastreio} />
       )}
 
-      {!painel && !erroPainel && <p className="mt-8 text-[var(--muted)]">{copy.lendo}</p>}
+      {!painel && !erroPainel && <p className="mt-8 text-[var(--muted)]" role="status">{copy.lendo}</p>}
 
-      {painel && !uf && (
-        <div className="mt-8 space-y-10">
+      {painel && visao === "eleitos" && (
+        <div className="mt-8">
           <ListaEleitos
             painel={painel}
-            visao={visao}
-            onAbrir={(item) => navegar({ uf: item.uf === "br" ? "" : item.uf, visao: item.cargo })}
+            onAbrir={(item) =>
+              navegar({
+                visao: item.resultado.cargo,
+                uf: item.resultado.cargo === "presidente" || item.resultado.uf === "br" ? "" : item.resultado.uf,
+                mun: "",
+              })
+            }
           />
+        </div>
+      )}
+
+      {painel && !uf && visao !== "eleitos" && (
+        <div className="mt-8 space-y-10">
+          {visao === "tudo" && (
+            <ListaEleitos
+              painel={painel}
+              onAbrir={(item) =>
+                navegar({
+                  visao: item.resultado.cargo,
+                  uf: item.resultado.cargo === "presidente" || item.resultado.uf === "br" ? "" : item.resultado.uf,
+                  mun: "",
+                })
+              }
+            />
+          )}
           {visao !== "governador" && (
             <section className="space-y-4">
               <Cabecalho
@@ -363,7 +447,6 @@ export function PainelApp() {
               />
               <Disputa resultado={nacional ?? painel.presidente} />
               {nacional && <MensagemPlacar resultado={nacional} copy={copy} idioma={idioma} />}
-              {nacional && <GraficoPizza resultado={nacional} copy={copy} />}
               <div className="grid gap-8 lg:grid-cols-2">
                 <MapaBrasil unidades={painel.unidades} resultado={nacional} copy={copy} locale={locale} idioma={idioma} onEscolher={(sigla) => navegar({ uf: sigla, visao: "presidente" })} />
                 <GraficoEstados unidades={painel.unidades} resultado={nacional} copy={copy} locale={locale} idioma={idioma} onEscolher={(sigla) => navegar({ uf: sigla, visao: "presidente" })} />
@@ -376,7 +459,7 @@ export function PainelApp() {
             <section className="space-y-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <Cabecalho titulo={copy.governadores} modo={governadoresVisiveis.some((item) => item.modo === "ao-vivo") ? "ao-vivo" : "aguardando"} />
-                <button type="button" className="min-h-11 self-start text-sm underline" onClick={() => setSoSegundo((valor) => !valor)}>
+                <button type="button" className="min-h-11 self-start text-sm underline" aria-pressed={!soSegundo} onClick={() => setSoSegundo((valor) => !valor)}>
                   {soSegundo ? copy.mostrarTodos : copy.mostrarSoSegundo}
                 </button>
               </div>
@@ -397,8 +480,8 @@ export function PainelApp() {
         </div>
       )}
 
-      {painel && uf && !mun && (
-        <div id="resultado" className="mt-8 scroll-mt-24 space-y-10">
+      {painel && uf && !mun && visao !== "eleitos" && (
+        <div className="mt-8 space-y-10">
           {visao !== "governador" && (
             <SomaEstado
               titulo={copy.presidenteEm(nomeLocal(uf, locale))}
@@ -423,9 +506,12 @@ export function PainelApp() {
           )}
           {uf !== "zz" && (
             <section>
-              <label className="block text-sm">
+              <label className="block text-sm" htmlFor="busca-cidade">
                 <span className="mb-1 block text-[var(--muted)]">{copy.buscarSoma}</span>
                 <input
+                  id="busca-cidade"
+                  type="search"
+                  aria-label={copy.buscarSoma}
                   value={busca}
                   onChange={(evento) => setBusca(evento.target.value)}
                   placeholder={copy.placeholderCidade}
@@ -452,7 +538,7 @@ export function PainelApp() {
         </div>
       )}
 
-      {painel && uf && mun && (
+      {painel && uf && mun && visao !== "eleitos" && (
         <div className="mt-8 space-y-10">
           <button type="button" className="min-h-11 text-sm underline" onClick={() => navegar({ mun: "" })}>
             {copy.voltarSoma(nomeLocal(uf, locale))}
@@ -472,37 +558,66 @@ export function PainelApp() {
         </div>
       )}
 
+      </main>
       <footer className="mt-12 border-t border-[var(--line)] pt-4 text-sm text-[var(--muted)]">
-        {copy.rodape}
+        <p>{copy.rodape}</p>
+        <nav className="mt-3 flex flex-wrap gap-x-4 gap-y-1" aria-label={copy.idioma}>
+          {LOCALES.map((item) => (
+            <a key={item} href={`/?hl=${item}`} hrefLang={intlLocale(item)} lang={intlLocale(item)} aria-current={locale === item ? "true" : undefined}>
+              {nomeLocale(item)}
+            </a>
+          ))}
+        </nav>
       </footer>
-      <Acompanhar presidente={nacional} governadores={painel?.governadores ?? []} />
-      <Apresentador
-        linhas={falas}
-        candidatos={nacional?.candidatos ?? []}
-        totais={nacional?.totais ?? null}
-        turno={nacional?.turno ?? 1}
-        unidades={(painel?.unidades ?? []).map((item) => ({
-          uf: item.uf,
-          nomeUf: item.nomeUf,
-          candidatos: item.candidatos,
-          totais: item.totais,
-        }))}
-      />
+      <Apresentador linhas={falas} perguntas={perguntas} tela={tela} />
     </div>
     </>
   );
 }
 
+function placaLocal(oficial: Resultado | null, varredura: Varredura, cargo: CargoLocal): Resultado | null {
+  if (!oficial) return null;
+  if (!varredura.pronta) return oficial;
+  const soma = somarCidades(cargo, oficial.uf, varredura.cidades, { modo: varredura.modo, turno: varredura.turno });
+  if (!soma) return oficial;
+  return { ...soma, cargo: oficial.cargo, modo: varredura.modo, turno: varredura.turno, nomeUf: oficial.nomeUf };
+}
+
 function BarraUrnas({ apuradas, total }: { apuradas: number; total: number }) {
   const { copy, locale } = useI18n();
   const idioma = intlLocale(locale);
+  const [agora, setAgora] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setAgora(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
   const pct = total > 0 ? (apuradas / total) * 100 : 0;
   const texto = copy.urnas(percentual(pct, 1, idioma));
+  const fase = faseEleicao(agora);
+  const dias = diasParaEleicao(agora);
+  const contador =
+    fase === "antes" ? (
+      <>
+        <span className="font-serif text-2xl tabular-nums leading-none">{dias}</span> {copy.sufixoDias(dias)}
+      </>
+    ) : fase === "hoje" ? (
+      copy.eleicaoHoje
+    ) : fase === "aberta" ? (
+      copy.votacaoAberta
+    ) : (
+      copy.votacaoEncerrou
+    );
   return (
     <div className="sticky top-0 z-30 border-b border-[var(--line)] bg-[var(--paper)]">
-      <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-2 sm:px-6">
+      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2 sm:px-6">
+        <p className="text-sm font-medium" role="status">
+          {contador}
+        </p>
+        <p className="shrink-0 text-sm font-medium tabular-nums">{texto}</p>
+      </div>
+      <div className="mx-auto w-full max-w-6xl px-4 pb-2 sm:px-6">
         <div
-          className="h-2.5 flex-1 overflow-hidden rounded-full bg-[var(--track)]"
+          className="h-2.5 overflow-hidden rounded-full bg-[var(--track)]"
           role="progressbar"
           aria-valuenow={Math.round(pct)}
           aria-valuemin={0}
@@ -511,7 +626,6 @@ function BarraUrnas({ apuradas, total }: { apuradas: number; total: number }) {
         >
           <div className="h-full bg-[var(--acao)]" style={{ width: `${Math.min(100, pct)}%` }} />
         </div>
-        <p className="shrink-0 text-sm font-medium tabular-nums">{texto}</p>
       </div>
     </div>
   );
@@ -521,7 +635,7 @@ function AvisoErro({ texto, rastreio }: { texto: string; rastreio: string }) {
   const { copy } = useI18n();
   const id = rastreioVisivel(rastreio);
   return (
-    <p className="mt-4 rounded-2xl bg-[var(--danger-bg)] px-4 py-3 text-sm">
+    <p className="mt-4 rounded-2xl bg-[var(--danger-bg)] px-4 py-3 text-sm" role="alert">
       {texto}
       {id ? <span className="mt-1 block font-mono text-xs">{copy.rastreio(id)}</span> : null}
     </p>
@@ -529,8 +643,15 @@ function AvisoErro({ texto, rastreio }: { texto: string; rastreio: string }) {
 }
 
 function visaoDe(valor: string | null): Visao {
-  if (valor === "presidente" || valor === "governador") return valor;
+  if (valor === "presidente" || valor === "governador" || valor === "eleitos") return valor;
   return "tudo";
+}
+
+function rotuloVisao(item: Visao, copy: { tudo: string; presidente: string; governador: string; eleitos: string }): string {
+  if (item === "presidente") return copy.presidente;
+  if (item === "governador") return copy.governador;
+  if (item === "eleitos") return copy.eleitos;
+  return copy.tudo;
 }
 
 async function varrer(
@@ -563,6 +684,109 @@ async function varrer(
     if (signal.aborted) return;
     definir({ cidades, total, modo, turno, erro: "soma", rastreio: "", pronta: false });
   }
+}
+
+function ListaEleitos({ painel, onAbrir }: { painel: Painel; onAbrir: (item: EleitoLista) => void }) {
+  const { copy, locale } = useI18n();
+  const idioma = intlLocale(locale);
+  const [turno, setTurno] = useState<0 | 1 | 2>(0);
+  const todos = useMemo(
+    () => eleitosDaApuracao([painel.presidente, ...painel.governadores]),
+    [painel],
+  );
+  const visiveis = useMemo(() => {
+    const base = turno === 0 ? todos : todos.filter((item) => item.turno === turno);
+    return base.slice().sort((a, b) => {
+      if (a.resultado.cargo !== b.resultado.cargo) return a.resultado.cargo === "presidente" ? -1 : 1;
+      const lugar = (item: EleitoLista) => (item.resultado.cargo === "presidente" ? "" : nomeLocal(item.resultado.uf, locale));
+      return lugar(a).localeCompare(lugar(b), idioma);
+    });
+  }, [todos, turno, locale, idioma]);
+  const filtros = [
+    { id: 0 as const, rotulo: copy.filtroTodosTurnos },
+    { id: 1 as const, rotulo: copy.turno1 },
+    { id: 2 as const, rotulo: copy.turno2 },
+  ];
+  return (
+    <section className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="font-serif text-3xl">{copy.eleitosTitulo}</h2>
+          <p className="text-sm text-[var(--muted)]">{copy.eleitosConta(visiveis.length)}</p>
+        </div>
+        <div className="flex flex-wrap rounded-full bg-[var(--paper)] p-1" role="group" aria-label={copy.filtroTurno}>
+          {filtros.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              aria-pressed={turno === item.id}
+              onClick={() => setTurno(item.id)}
+              className={`min-h-11 rounded-full px-3 text-sm ${turno === item.id ? "bg-[var(--ink)] text-[var(--paper)]" : ""}`}
+            >
+              {item.rotulo}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p className="text-sm text-[var(--muted)]">{copy.eleitosNota}</p>
+      {visiveis.length === 0 ? (
+        <p className="text-sm text-[var(--muted)]">{copy.eleitosVazio}</p>
+      ) : (
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {visiveis.map((item) => {
+            const lugar = item.resultado.cargo === "presidente" ? copy.brasilInteiro : nomeLocal(item.resultado.uf, locale);
+            const cargo = item.resultado.cargo === "presidente" ? copy.presidente : copy.governador;
+            return (
+              <li key={`${item.resultado.cargo}:${item.resultado.uf}:${item.candidato.sqcand}`}>
+                <button
+                  type="button"
+                  onClick={() => onAbrir(item)}
+                  className="flex w-full items-center gap-3 rounded-3xl border border-[var(--line)] bg-[var(--paper)] p-4 text-left shadow-card"
+                >
+                  <FotoEleito nome={item.candidato.nome} fotos={item.candidato.fotos} />
+                  <span className="min-w-0">
+                    <span className="block truncate font-serif text-xl leading-tight">{item.candidato.nome}</span>
+                    <span className="mt-1 block truncate text-sm text-[var(--muted)]">
+                      {cargo} · {lugar} · {item.turno === 2 ? copy.turno2 : copy.turno1}
+                    </span>
+                    <span className="mt-1 block text-sm tabular-nums">
+                      {percentual(razao(item.candidato.votos, item.resultado.totais.votosValidos), 2, idioma)}
+                      {" · "}
+                      {numero(item.candidato.votos, idioma)}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function FotoEleito({ nome, fotos }: { nome: string; fotos: string[] }) {
+  const { copy } = useI18n();
+  const [indice, setIndice] = useState(0);
+  const candidato = fotos[indice];
+  const src = candidato?.startsWith("https://resultados.tse.jus.br/") ? candidato : "";
+  if (!src) {
+    return (
+      <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-[var(--track)] text-sm font-semibold">
+        {iniciais(nome)}
+      </span>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={copy.fotoAlt(nome)}
+      width={56}
+      height={56}
+      className="h-14 w-14 shrink-0 rounded-full object-cover"
+      onError={() => setIndice((atual) => atual + 1)}
+    />
+  );
 }
 
 function destacar(resultado: Resultado): Candidato[] {
@@ -612,11 +836,7 @@ function Disputa({ resultado }: { resultado: Resultado }) {
           <ul className="mt-3 space-y-1">
             {demais.map((cand) => (
               <li key={cand.sqcand} className="flex justify-between gap-3">
-                <span className="min-w-0 truncate">
-                  {cand.nome}
-                  {cand.partido ? ` · ${cand.partido}` : ""}
-                  {cand.numero ? ` · ${cand.numero}` : ""}
-                </span>
+                <span className="min-w-0 truncate">{cand.nome} · {cand.partido}</span>
                 <span className="shrink-0 tabular-nums">{percentual(razao(cand.votos, resultado.totais.votosValidos), 2, idioma)}</span>
               </li>
             ))}
@@ -624,82 +844,6 @@ function Disputa({ resultado }: { resultado: Resultado }) {
         </details>
       )}
     </div>
-  );
-}
-
-function ListaEleitos({
-  painel,
-  visao,
-  onAbrir,
-}: {
-  painel: Painel;
-  visao: Visao;
-  onAbrir: (item: { uf: string; cargo: CargoLocal }) => void;
-}) {
-  const { copy, locale } = useI18n();
-  const idioma = intlLocale(locale);
-  const fontes = [
-    ...(visao === "governador" ? [] : [painel.presidente]),
-    ...(visao === "presidente" ? [] : painel.governadores),
-  ];
-  const itens = fontes.flatMap((resultado) =>
-    resultado.candidatos.filter((candidato) => candidato.fase === "eleito").map((candidato) => ({ candidato, resultado })),
-  );
-  if (itens.length === 0) return null;
-  return (
-    <section className="space-y-4">
-      <div>
-        <h2 className="font-serif text-3xl">Quem já está eleito</h2>
-        <p className="text-sm text-[var(--muted)]">{itens.length === 1 ? "1 eleito" : `${itens.length} eleitos`}</p>
-      </div>
-      <p className="text-sm text-[var(--muted)]">O partido é o da urna, ao lado do nome.</p>
-      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {itens.map(({ candidato, resultado }) => {
-          const cargo = resultado.cargo === "presidente" ? copy.presidente : copy.governador;
-          const lugar = resultado.uf === "br" ? copy.brasilInteiro : nomeLocal(resultado.uf, locale);
-          const turno = resultado.turno === 2 ? copy.segundoTurno : "1º turno";
-          const sigla = candidato.partido || copy.semPartido;
-          return (
-            <li key={`${resultado.cargo}:${resultado.uf}:${candidato.sqcand}`}>
-              <button
-                type="button"
-                onClick={() => onAbrir({ uf: resultado.uf, cargo: resultado.cargo })}
-                className="flex w-full items-center gap-3 rounded-3xl border border-[var(--line)] bg-[var(--paper)] p-4 text-left shadow-card"
-              >
-                <FotoEleito nome={candidato.nome} fotos={candidato.fotos} />
-                <span className="min-w-0">
-                  <span className="flex flex-wrap items-center gap-2">
-                    <span className="font-serif text-xl leading-tight">{candidato.nome}</span>
-                    <span className="rounded-full px-2 py-0.5 text-xs font-bold tracking-wide text-white" style={{ background: corPartido(candidato.partido) }}>
-                      {sigla}
-                    </span>
-                  </span>
-                  <span className="mt-1 block text-sm text-[var(--muted)]">
-                    {cargo} · {lugar} · {candidato.partidoNome || sigla} · {turno}
-                  </span>
-                  <span className="mt-1 block text-sm tabular-nums">
-                    {percentual(razao(candidato.votos, resultado.totais.votosValidos), 2, idioma)} · {numero(candidato.votos, idioma)}
-                  </span>
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
-
-function FotoEleito({ nome, fotos }: { nome: string; fotos: string[] }) {
-  const [indice, setIndice] = useState(0);
-  const url = fotos[indice]?.startsWith("https://resultados.tse.jus.br/") ? fotos[indice] : "";
-  if (!url) {
-    return (
-      <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-[var(--track)] text-sm font-semibold">{iniciais(nome)}</span>
-    );
-  }
-  return (
-    <img src={url} alt="" width={56} height={56} className="h-14 w-14 shrink-0 rounded-full object-cover" onError={() => setIndice((atual) => atual + 1)} />
   );
 }
 
@@ -743,10 +887,7 @@ function MiniEstado({ resultado }: { resultado: Resultado }) {
       <span className="mt-2 block space-y-1 text-sm">
         {dupla.map((cand) => (
           <span key={cand.sqcand} className="flex justify-between gap-2">
-            <span className="truncate">
-              {cand.nome}
-              {cand.partido ? ` · ${cand.partido}` : ""}
-            </span>
+            <span className="truncate">{cand.nome}</span>
             <span className="tabular-nums">{percentual(razao(cand.votos, resultado.totais.votosValidos), 2, idioma)}</span>
           </span>
         ))}
@@ -757,16 +898,14 @@ function MiniEstado({ resultado }: { resultado: Resultado }) {
 
 function SomaEstado({ titulo, varredura, oficial }: { titulo: string; varredura: Varredura; oficial: Resultado | null }) {
   const { copy } = useI18n();
-  const somaPronta = varredura.pronta
-    ? somarCidades(oficial?.cargo ?? "presidente", oficial?.uf ?? "", varredura.cidades, { modo: varredura.modo, turno: varredura.turno })
-    : null;
-  const resultado = somaPronta ?? oficial;
+  const soma = somarCidades("presidente", oficial?.uf ?? "", varredura.cidades, { modo: varredura.modo, turno: varredura.turno });
+  const resultado = soma && oficial ? { ...soma, cargo: oficial.cargo, modo: varredura.modo, turno: varredura.turno, nomeUf: oficial.nomeUf } : null;
   const falhas = varredura.cidades.filter((cidade) => !cidade.ok).length;
   return (
     <section className="space-y-4">
       <Cabecalho
         titulo={titulo}
-        modo={resultado?.modo ?? varredura.modo}
+        modo={varredura.modo}
         detalhe={varredura.total ? copy.lidosDe(varredura.cidades.length, varredura.total) : copy.comecandoLeitura}
       />
       {varredura.erro && (
@@ -778,24 +917,4 @@ function SomaEstado({ titulo, varredura, oficial }: { titulo: string; varredura:
   );
 }
 
-function Contagem() {
-  const { copy } = useI18n();
-  const [texto, setTexto] = useState<string | null>(null);
-  useEffect(() => {
-    function atualizar() {
-      const falta = new Date(ALVO_APURACAO).getTime() - Date.now();
-      if (falta <= 0) {
-        setTexto(copy.countdownPast);
-        return;
-      }
-      const dias = Math.floor(falta / 86400000);
-      const horas = Math.floor((falta % 86400000) / 3600000);
-      setTexto(copy.countdownFuture(dias, horas));
-    }
-    atualizar();
-    const id = setInterval(atualizar, 60000);
-    return () => clearInterval(id);
-  }, [copy]);
-  if (!texto) return null;
-  return <p className="mt-4 rounded-2xl bg-[var(--paper)] px-4 py-3 text-sm">{texto}</p>;
-}
+

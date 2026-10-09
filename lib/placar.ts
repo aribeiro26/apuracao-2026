@@ -70,6 +70,42 @@ export function cenarioDaDisputa(par: Par, resultado: Resultado): Cenario {
   return { tipo: "aberto", nome: lider.nome, faltam: restantes > 0 ? restantes : null };
 }
 
+export type EleitoLista = {
+  resultado: Resultado;
+  candidato: Candidato;
+  turno: 1 | 2;
+};
+
+/** Eleitos do TSE e, no 2º turno, quem a conta já trava antes de fechar as urnas. */
+export function eleitosDaApuracao(resultados: Resultado[]): EleitoLista[] {
+  const itens: EleitoLista[] = [];
+  const vistos = new Set<string>();
+  for (const resultado of resultados) {
+    if (resultado.uf === "zz") continue;
+    const turno: 1 | 2 = resultado.turno === 2 || resultado.modo === "ao-vivo" ? 2 : 1;
+    const escolhidos: Candidato[] = resultado.candidatos.filter((cand) => cand.fase === "eleito");
+    const par = parDaDisputa(resultado.candidatos);
+    if (par) {
+      const cenario = cenarioDaDisputa(par, resultado);
+      if (cenario.tipo === "eleito") {
+        const lider = quemLidera(par);
+        if (lider && !escolhidos.some((cand) => cand.sqcand === lider.sqcand)) escolhidos.push(lider);
+      }
+    }
+    const primeiro = resultado.candidatos[0];
+    if (!escolhidos.length && resultado.modo === "definido" && resultado.turno === 1 && primeiro && primeiro.fase !== "nao-eleito") {
+      escolhidos.push(primeiro);
+    }
+    for (const candidato of escolhidos) {
+      const chave = `${resultado.cargo}:${resultado.uf}:${candidato.sqcand}`;
+      if (vistos.has(chave)) continue;
+      vistos.add(chave);
+      itens.push({ resultado, candidato, turno });
+    }
+  }
+  return itens;
+}
+
 export function contarLados(par: Par, unidades: Resultado[]): { azul: number; vermelho: number } {
   let azul = 0;
   let vermelho = 0;

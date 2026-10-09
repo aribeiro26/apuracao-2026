@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       bodySizeLimit: "4kb",
-      allowedOrigins: ["festalugar.com.br", "www.festalugar.com.br"],
+      allowedOrigins: ["festalugar.com.br", "www.festalugar.com.br", "apuracao-2026-enquete.vercel.app"],
     },
   },
   async redirects() {
@@ -18,6 +18,12 @@ const nextConfig: NextConfig = {
         source: "/:path*",
         has: [{ type: "host", value: "www.festalugar.com.br" }],
         destination: "https://festalugar.com.br/:path*",
+        permanent: true,
+      },
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "apuracao-2026-alexetecribeiro-9013.vercel.app" }],
+        destination: "https://apuracao-2026-enquete.vercel.app/:path*",
         permanent: true,
       },
     ];

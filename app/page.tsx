@@ -1,4 +1,6 @@
 import { Suspense } from "react";
+
+export const maxDuration = 60;
 import { LocaleProvider } from "@/components/LocaleProvider";
 import { PainelApp } from "@/components/PainelApp";
 import { Carregando } from "@/components/Carregando";

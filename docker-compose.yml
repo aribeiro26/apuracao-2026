@@ -4,4 +4,14 @@ services:
     image: apuracao-2026
     ports:
       - "3000:3000"
+    env_file:
+      - path: ${LOCALAPPDATA}/apuracao-ollama/container.env
+        required: false
+      - path: .env.docker
+        required: false
+    environment:
+      LICOES_PATH: /dados-locais/licoes.jsonl
+      PERGUNTAS_PATH: /dados-locais/perguntas.jsonl
+    volumes:
+      - ${LOCALAPPDATA}/apuracao-ollama:/dados-locais
     restart: unless-stopped

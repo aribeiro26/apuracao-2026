@@ -37,8 +37,9 @@ export function middleware(request: NextRequest) {
   const nonce = crypto.randomUUID();
   const csp = politica(nonce);
   const salvo = request.cookies.get("locale")?.value;
+  const hl = request.nextUrl.searchParams.get("hl");
   const pais = request.headers.get("x-vercel-ip-country") || request.headers.get("cf-ipcountry");
-  const locale = isLocale(salvo) ? salvo : (localeFromCountry(pais) ?? localeFromAccept(request.headers.get("accept-language")));
+  const locale = isLocale(hl) ? hl : isLocale(salvo) ? salvo : (localeFromCountry(pais) ?? localeFromAccept(request.headers.get("accept-language")));
 
   if (htmlNaUrl(request)) {
     registrar({ ...ctx, acao: "http", resultado: "falha", porque: "html-na-url", canal: "http" });
@@ -58,6 +59,7 @@ export function middleware(request: NextRequest) {
   cabecalhos.set("x-locale", locale);
   cabecalhos.set("x-tema", tema);
   cabecalhos.set("x-rastreio", ctx.rastreio);
+  cabecalhos.set("x-nonce", nonce);
   cabecalhos.set("content-security-policy", csp);
   const resposta = NextResponse.next({ request: { headers: cabecalhos } });
   resposta.headers.set("content-security-policy", csp);
@@ -86,5 +88,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|icon.svg).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|icon.svg|robots.txt|sitemap.xml|opengraph-image).*)"],
 };

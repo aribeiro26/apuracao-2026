@@ -13,3 +13,10 @@ export function ipConfiavel(cabecalhos: Headers): string {
   if (real) return real;
   return "local";
 }
+
+/** IP usado para travar um segundo voto. Fora da Vercel não há endereço confiável. */
+export function ipDeVoto(cabecalhos: Headers): string | null {
+  const ip = ipConfiavel(cabecalhos);
+  if (!ip || ip === "local") return null;
+  return ip;
+}

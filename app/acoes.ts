@@ -1,18 +1,23 @@
 "use server";
 
-import { headers } from "next/headers";
-import { ipConfiavel } from "@/lib/ip";
-import { consumir, entrar, sair } from "@/lib/limite";
-import { acharCidade, fraseDoLugar } from "@/lib/pergunta";
-import { pngDoPix } from "@/lib/pix";
-import { contextoDe, registrar, type Contexto } from "@/lib/siem";
+import { cookies, headers } from "next/headers";
+import { lerResumo, marcarPresenca, marcarVoto, ufDoPedido, type ResumoAudiencia } from "@/lib/audiencia";
 import { textoPlano } from "@/lib/texto";
+import { ipConfiavel, ipDeVoto } from "@/lib/ip";
+import { consumir, entrar, sair } from "@/lib/limite";
+import { contextoDe, registrar, type Contexto } from "@/lib/siem";
+import { responderPergunta } from "@/lib/ia";
+import { temIa } from "@/lib/llm";
+import { itensDaRede, itensEmCache, sementeSePresidencial } from "@/lib/reportagens";
+import { ehTipoReportagem, type Reportagem } from "@/lib/reportagens-semente";
+import { isLocale } from "@/lib/locale";
+import { pngDoPix } from "@/lib/pix";
+import { limparPergunta, normalizarTela, type TelaIa } from "@/lib/tela-ia";
 import {
   PedidoInvalido,
   lerCidade,
   lerLote,
   listarMunicipios,
-  listarTodasCidades,
   montarPainel,
   obterResultado,
   type CidadeApurada,
@@ -48,9 +53,26 @@ const REGRAS: Record<string, Regra[]> = {
     { escopo: "ip", max: 10, janelaMs: 60_000, vagas: 2 },
     { escopo: "todos", max: 120, janelaMs: 60_000, vagas: 6 },
   ],
-  pergunta: [
-    { escopo: "ip", max: 20, janelaMs: 60_000, vagas: 2 },
-    { escopo: "todos", max: 200, janelaMs: 60_000, vagas: 6 },
+  presenca: [
+    { escopo: "ip", max: 40, janelaMs: 60_000, vagas: 4 },
+    { escopo: "todos", max: 4000, janelaMs: 60_000, vagas: 20 },
+  ],
+  voto: [
+    { escopo: "ip", max: 6, janelaMs: 60_000, vagas: 2 },
+    { escopo: "todos", max: 600, janelaMs: 60_000, vagas: 8 },
+  ],
+  enquete: [
+    { escopo: "ip", max: 30, janelaMs: 60_000, vagas: 3 },
+    { escopo: "todos", max: 600, janelaMs: 60_000, vagas: 12 },
+  ],
+  ia: [
+    { escopo: "ip", max: 6, janelaMs: 60_000, vagas: 1 },
+    { escopo: "ip", max: 30, janelaMs: 3_600_000, vagas: 1 },
+    { escopo: "todos", max: 40, janelaMs: 60_000, vagas: 3 },
+  ],
+  faq: [
+    { escopo: "ip", max: 10, janelaMs: 60_000, vagas: 2 },
+    { escopo: "todos", max: 30, janelaMs: 60_000, vagas: 4 },
   ],
 };
 
@@ -200,24 +222,67 @@ export async function lerLoteMunicipios(
   );
 }
 
-export async function responderPergunta(texto: string): Promise<({ ok: true; texto: string } & { rastreio: string }) | Falha> {
-  const limpo = textoPlano(texto, 160);
-  return auditar("pergunta", {}, () =>
-    comCota("pergunta", async () => {
-      if (limpo.length < 3) return { ok: true as const, texto: "Escreva o nome da cidade e o candidato." };
+function nomesDeReportagem(valor: unknown): string[] {
+  if (!Array.isArray(valor)) return [];
+  const vistos = new Set<string>();
+  const saida: string[] = [];
+  for (const item of valor) {
+    const nome = textoPlano(item, 80);
+    const chave = nome.toLowerCase();
+    if (nome.length < 2 || vistos.has(chave)) continue;
+    vistos.add(chave);
+    saida.push(nome);
+    if (saida.length === 4) break;
+  }
+  return saida;
+}
+
+export async function lerReportagens(
+  tipo: string,
+  nomes: unknown,
+  locale: string,
+): Promise<({ ok: true; itens: Reportagem[] } & { rastreio: string }) | Falha> {
+  const localeOk = isLocale(locale) ? locale : null;
+  if (!ehTipoReportagem(tipo) || !localeOk) {
+    return auditar("faq", {}, async () => ({ ok: false as const, erro: "pedido" as const }));
+  }
+  const nomesOk = nomesDeReportagem(nomes);
+  const emCache = itensEmCache(tipo, nomesOk, localeOk);
+  if (emCache) return auditar("faq", {}, async () => ({ ok: true as const, itens: emCache }));
+  if (!temIa()) {
+    return auditar("faq", {}, async () => ({ ok: true as const, itens: sementeSePresidencial(tipo, nomesOk, localeOk) }));
+  }
+  return auditar("faq", {}, () =>
+    comCota("faq", async () => {
       try {
-        const cidade = acharCidade(limpo, await listarTodasCidades());
-        if (!cidade) return { ok: true as const, texto: "Não achei esse município na lista do TSE. Tente o nome da cidade." };
-        const [lida, oficial] = await Promise.all([
-          lerCidade("presidente", cidade.uf, cidade.codigo),
-          obterResultado("presidente", cidade.uf),
-        ]);
-        if (!lida.ok || !lida.candidatos || !lida.totais) {
-          return { ok: true as const, texto: `O TSE ainda não publicou o arquivo de ${cidade.nome}.` };
-        }
-        return { ok: true as const, texto: fraseDoLugar(cidade.nome, oficial.turno, lida.candidatos, lida.totais, limpo) };
-      } catch (erro) {
-        return falhaDe(erro);
+        const rede = await itensDaRede(tipo, nomesOk, localeOk);
+        if (rede && rede.length > 0) return { ok: true as const, itens: rede };
+      } catch {
+        /* a semente cobre a disputa presidencial */
+      }
+      const semente = sementeSePresidencial(tipo, nomesOk, localeOk);
+      if (semente.length > 0) return { ok: true as const, itens: semente };
+      return { ok: false as const, erro: "rede" as const };
+    }),
+  );
+}
+
+export async function perguntarApresentadora(
+  pergunta: string,
+  tela: TelaIa,
+  locale: string,
+): Promise<({ ok: true; texto: string; fontes: string[] } & { rastreio: string }) | Falha> {
+  const perguntaOk = limparPergunta(pergunta);
+  const localeOk = isLocale(locale) ? locale : "pt-BR";
+  if (perguntaOk.length < 2) return auditar("ia", {}, async () => ({ ok: false as const, erro: "pedido" as const }));
+  const telaOk = normalizarTela(tela);
+  return auditar("ia", {}, () =>
+    comCota("ia", async () => {
+      try {
+        const resposta = await responderPergunta(perguntaOk, telaOk, localeOk);
+        return { ok: true as const, texto: resposta.texto, fontes: resposta.fontes };
+      } catch {
+        return { ok: false as const, erro: "rede" as const };
       }
     }),
   );
@@ -232,6 +297,71 @@ export async function qrDoacao(): Promise<({ ok: true; png: string } & { rastrei
       } catch {
         return { ok: false as const, erro: "rede" as const };
       }
+    }),
+  );
+}
+
+const VISITA = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function idDaVisita(): Promise<string> {
+  const jar = await cookies();
+  const salvo = jar.get("visita")?.value ?? "";
+  const id = VISITA.test(salvo) ? salvo : crypto.randomUUID();
+  const seguro = (await headers()).get("x-forwarded-proto") === "https";
+  if (id !== salvo) {
+    jar.set("visita", id, { httpOnly: true, sameSite: "lax", secure: seguro, path: "/", maxAge: 60 * 60 * 24 * 365 });
+  }
+  return id;
+}
+
+export async function atualizarEnquete(): Promise<({ ok: true; resumo: ResumoAudiencia } & { rastreio: string }) | Falha> {
+  const resultado = await comCota("enquete", async () => {
+    const cabecalhos = await headers();
+    const jar = await cookies();
+    const id = jar.get("visita")?.value;
+    const resumo = await lerResumo(VISITA.test(id ?? "") ? id : undefined, ipDeVoto(cabecalhos));
+    return { ok: true as const, resumo };
+  });
+  if (!resultado.ok) return { ok: false, erro: "limite", rastreio: contextoDe(await headers()).rastreio };
+  return { ...resultado, rastreio: "" };
+}
+
+export async function registrarPresenca(): Promise<({ ok: true; resumo: ResumoAudiencia } & { rastreio: string }) | Falha> {
+  const resultado = await comCota("presenca", async () => {
+    const cabecalhos = await headers();
+    const id = await idDaVisita();
+    const resumo = await marcarPresenca(id, ufDoPedido(cabecalhos), ipDeVoto(cabecalhos));
+    return { ok: true as const, resumo };
+  });
+  if (!resultado.ok) return { ok: false, erro: "limite", rastreio: contextoDe(await headers()).rastreio };
+  return { ...resultado, rastreio: "" };
+}
+
+export async function votarCandidato(
+  chave: string,
+  nome: string,
+): Promise<({ ok: true; novo: boolean; resumo: ResumoAudiencia } & { rastreio: string }) | Falha> {
+  const chaveOk = /^[a-z0-9]{1,32}$/.test(chave) ? chave : "";
+  const nomeOk = textoPlano(nome, 40);
+  if (!chaveOk || !nomeOk) return auditar("voto", {}, async () => ({ ok: false as const, erro: "pedido" as const }));
+  return auditar("voto", {}, () =>
+    comCota("voto", async () => {
+      const jar = await cookies();
+      const cabecalhos = await headers();
+      const id = await idDaVisita();
+      const rede = ipDeVoto(cabecalhos);
+      const antigo = jar.get("voto-botao")?.value || (jar.get("voto-lula")?.value === "1" ? "lula" : "");
+      if (antigo) {
+        const resumo = await lerResumo(id, rede);
+        return { ok: true as const, novo: false, resumo: { ...resumo, minhaEscolha: antigo } };
+      }
+      const { novo, resumo } = await marcarVoto(id, chaveOk, nomeOk, rede);
+      const marcado = resumo.minhaEscolha;
+      if (marcado) {
+        const seguro = cabecalhos.get("x-forwarded-proto") === "https";
+        jar.set("voto-botao", marcado, { httpOnly: true, sameSite: "lax", secure: seguro, path: "/", maxAge: 60 * 60 * 24 * 365 });
+      }
+      return { ok: true as const, novo, resumo };
     }),
   );
 }
