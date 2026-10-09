@@ -312,12 +312,17 @@ async function lerArquivo(
   };
 }
 
+function temApuracao(resultado: Resultado): boolean {
+  return resultado.totais.votosValidos > 0 || resultado.totais.secoesApuradas > 0 || resultado.candidatos.some((cand) => cand.votos > 0);
+}
+
 export async function obterResultado(cargo: Cargo, uf: string): Promise<Resultado> {
   const sigla = uf === "br" ? "br" : validarUf(uf, cargo);
   const par = await alvos(cargo);
   if (par.segundo && par.segundoListado) {
     try {
-      return await lerArquivo(par.segundo, par.primeiro, cargo, sigla, urlAgregado(par.segundo.codigo, cargo, sigla));
+      const segundo = await lerArquivo(par.segundo, par.primeiro, cargo, sigla, urlAgregado(par.segundo.codigo, cargo, sigla));
+      if (temApuracao(segundo)) return segundo;
     } catch (erro) {
       if (!(erro instanceof NaoPublicado)) throw erro;
     }
@@ -358,14 +363,8 @@ export async function listarMunicipios(cargo: Cargo, uf: string): Promise<Munici
 
 async function codigoDaLeitura(cargo: Cargo, uf: string): Promise<{ ativo: Alvo; primeiro: Alvo }> {
   const par = await alvos(cargo);
-  if (par.segundo && par.segundoListado) {
-    try {
-      await baixarJson(urlAgregado(par.segundo.codigo, cargo, uf), 20);
-      return { ativo: par.segundo, primeiro: par.primeiro };
-    } catch (erro) {
-      if (!(erro instanceof NaoPublicado)) throw erro;
-    }
-  }
+  const atual = await obterResultado(cargo, uf);
+  if (atual.turno === 2 && par.segundo) return { ativo: par.segundo, primeiro: par.primeiro };
   return { ativo: par.primeiro, primeiro: par.primeiro };
 }
 

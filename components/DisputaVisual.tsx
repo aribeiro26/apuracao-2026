@@ -104,19 +104,24 @@ export function GraficoEstados({
       <Legenda par={par} resultado={resultado} copy={copy} idioma={idioma} />
       <ul className="mt-3 max-h-[32rem] space-y-2 overflow-auto pr-1">
         {linhas.map((linha) => {
-          const fatiaAzul = linha.total ? (linha.azul / linha.total) * 100 : 0;
+          const vazio = linha.total <= 0;
+          const fatiaAzul = vazio ? 0 : (linha.azul / linha.total) * 100;
           return (
             <li key={linha.uf}>
               <button type="button" className="w-full text-left" onClick={() => onEscolher(linha.uf)}>
                 <span className="flex items-baseline justify-between gap-3 text-sm">
                   <span>{nomeLocal(linha.uf, locale)}</span>
                   <span className="tabular-nums text-[var(--muted)]">
-                    {percentual(fatiaAzul, 0, idioma)} · {percentual(100 - fatiaAzul, 0, idioma)}
+                    {vazio ? "—" : `${percentual(fatiaAzul, 0, idioma)} · ${percentual(100 - fatiaAzul, 0, idioma)}`}
                   </span>
                 </span>
                 <span className="mt-1 flex h-2 overflow-hidden rounded-full bg-[var(--line)]">
-                  <span style={{ width: `${fatiaAzul}%`, background: COR.azul }} />
-                  <span style={{ width: `${100 - fatiaAzul}%`, background: COR.vermelho }} />
+                  {!vazio && (
+                    <>
+                      <span style={{ width: `${fatiaAzul}%`, background: COR.azul }} />
+                      <span style={{ width: `${100 - fatiaAzul}%`, background: COR.vermelho }} />
+                    </>
+                  )}
                 </span>
               </button>
             </li>

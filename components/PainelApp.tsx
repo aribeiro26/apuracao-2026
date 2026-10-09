@@ -96,6 +96,11 @@ export function PainelApp() {
   }, [idioma]);
 
   useEffect(() => {
+    if (!uf) return;
+    document.getElementById("resultado")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [uf]);
+
+  useEffect(() => {
     if (!uf || uf === "zz") {
       setMunicipios([]);
       return;
@@ -377,7 +382,7 @@ export function PainelApp() {
       )}
 
       {painel && uf && !mun && (
-        <div className="mt-8 space-y-10">
+        <div id="resultado" className="mt-8 scroll-mt-24 space-y-10">
           {visao !== "governador" && (
             <SomaEstado
               titulo={copy.presidenteEm(nomeLocal(uf, locale))}
@@ -649,14 +654,16 @@ function MiniEstado({ resultado }: { resultado: Resultado }) {
 
 function SomaEstado({ titulo, varredura, oficial }: { titulo: string; varredura: Varredura; oficial: Resultado | null }) {
   const { copy } = useI18n();
-  const soma = somarCidades("presidente", oficial?.uf ?? "", varredura.cidades, { modo: varredura.modo, turno: varredura.turno });
-  const resultado = soma && oficial ? { ...soma, cargo: oficial.cargo, modo: varredura.modo, turno: varredura.turno, nomeUf: oficial.nomeUf } : null;
+  const somaPronta = varredura.pronta
+    ? somarCidades(oficial?.cargo ?? "presidente", oficial?.uf ?? "", varredura.cidades, { modo: varredura.modo, turno: varredura.turno })
+    : null;
+  const resultado = somaPronta ?? oficial;
   const falhas = varredura.cidades.filter((cidade) => !cidade.ok).length;
   return (
     <section className="space-y-4">
       <Cabecalho
         titulo={titulo}
-        modo={varredura.modo}
+        modo={resultado?.modo ?? varredura.modo}
         detalhe={varredura.total ? copy.lidosDe(varredura.cidades.length, varredura.total) : copy.comecandoLeitura}
       />
       {varredura.erro && (
