@@ -45,7 +45,7 @@ export function CandidatoCard({
       </div>
 
       <div>
-        <div className="relative h-3 overflow-hidden rounded-full bg-[#efe7dc]">
+        <div className="relative h-3 overflow-hidden rounded-full bg-[var(--track)]">
           <div className="absolute inset-y-0 left-1/2 w-px bg-[var(--mark)]" title={copy.marca50} />
           <div className="h-full rounded-full" style={{ width: `${Math.min(100, fatia)}%`, background: cor }} />
         </div>
@@ -70,10 +70,11 @@ export function CandidatoCard({
 function Foto({ nome, fotos }: { nome: string; fotos: string[] }) {
   const { copy } = useI18n();
   const [indice, setIndice] = useState(0);
-  const src = fotos[indice];
+  const candidato = fotos[indice];
+  const src = candidato?.startsWith("https://resultados.tse.jus.br/") ? candidato : "";
   if (!src) {
     return (
-      <span className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-[#efe7dc] text-sm font-semibold">
+      <span className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-[var(--track)] text-sm font-semibold">
         {iniciais(nome)}
       </span>
     );

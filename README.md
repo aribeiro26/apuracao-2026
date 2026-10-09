@@ -27,6 +27,10 @@ docker compose up --build
 
 O site fica em `http://localhost:3000`. Para parar: `docker compose down`.
 
+O container não publica as rotas de dados. O navegador chama server actions no próprio site, e um proxy na frente grava o IP real da ligação (o cliente não escolhe esse IP). Cada IP e o processo inteiro têm limite de pedidos e de chamadas ao mesmo tempo. Passou do limite, a página pede para esperar — um bot não consegue varrer o TSE por aqui.
+
+Cada pedido grava uma linha JSON no stdout (`docker compose logs`), no esquema 5W: quem (IP, país, idioma), o quê (ação e sucesso ou falha), quando, onde (serviço e canal) e por quê. O campo `rastreio` é o mesmo id do cabeçalho `x-rastreio` e, se algo falhar, aparece na página. A URL com HTML é recusada e não entra no log. A página manda um Content-Security-Policy: script só com nonce, sem objeto embutido e sem frame.
+
 `npm run conferir` soma os municípios do Acre e compara com o arquivo oficial do estado. Os dois números precisam ser iguais.
 
 ## Idioma e doação

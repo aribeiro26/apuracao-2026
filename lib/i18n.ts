@@ -27,6 +27,8 @@ export type Copy = {
   erroRede: string;
   erroMunicipio: string;
   erroSoma: string;
+  erroLimite: string;
+  rastreio: (id: string) => string;
   presidenteBrasil: string;
   arquivoNacional: (quando: string) => string;
   comoTotal: string;
@@ -80,6 +82,8 @@ export type Copy = {
   modoAguardando: string;
   modoDefinido: string;
   idioma: string;
+  temaEscuro: string;
+  temaClaro: string;
   doar: string;
   fechar: string;
   doarTitulo: string;
@@ -88,14 +92,37 @@ export type Copy = {
   doarErro: string;
   fotoAlt: (nome: string) => string;
   carregando: string;
+  mapaTitulo: string;
+  graficoTitulo: string;
+  municipiosTitulo: string;
+  verMunicipios: string;
+  naFrente: (nome: string, votos: string) => string;
+  paraPassar: (nome: string, votos: string) => string;
+  empatePlacar: string;
+  maioriaSimples: (nome: string) => string;
+  estadosNaFrente: (nome: string, n: number) => string;
+  opiniaoFecha: (nome: string) => string;
+  opiniaoAberta: (nome: string) => string;
+  apresentador: string;
+  apresentadorOuvir: string;
+  semDisputa: string;
+  municipioDele: (nome: string, n: number) => string;
+  urnas: (pct: string) => string;
+  cenarioSegue: string;
+  cenarioEleito: (nome: string) => string;
+  cenarioAberto: (nome: string, votos: string) => string;
+  cenarioAbertoSemConta: (nome: string) => string;
+  cenarioEmpate: string;
+  ativarAudio: string;
+  pararAudio: string;
 };
 
 const ptBR: Copy = {
-  metaTitle: "Segundo turno 2026 — a conta por município",
-  metaDescription: "Acompanhe presidente e governadores no segundo turno de 2026 com os arquivos públicos do TSE, somando os municípios.",
+  metaTitle: "Segundo turno 2026",
+  metaDescription: "Acompanhe presidente e governadores no segundo turno de 2026 com os arquivos públicos do TSE.",
   kicker: "Eleições 2026 · fonte TSE",
-  title: "Segundo turno, município por município",
-  lead: "Presidente e governador. O número grande é uma soma: urnas viram município, municípios viram estado, estados viram Brasil.",
+  title: "Segundo turno 2026",
+  lead: "Presidente e governadores, com os números oficiais do TSE.",
   live: "Apuração ao vivo",
   waiting: "Aguardando o 2º turno",
   readAt: (hora) => `lido às ${hora}`,
@@ -122,6 +149,8 @@ const ptBR: Copy = {
   erroRede: "Não foi possível ler o TSE agora.",
   erroMunicipio: "Não foi possível ler este município.",
   erroSoma: "A soma dos municípios falhou.",
+  erroLimite: "Muitos pedidos de uma vez. Espere um instante e tente de novo.",
+  rastreio: (id) => `Rastreio: ${id}`,
   presidenteBrasil: "Presidente no Brasil",
   arquivoNacional: (quando) => `Arquivo nacional do TSE: ${quando} (Brasília)`,
   comoTotal: "Como este total foi feito",
@@ -175,6 +204,8 @@ const ptBR: Copy = {
   modoAguardando: "Números do 1º turno, de quem segue",
   modoDefinido: "Decidido no 1º turno",
   idioma: "Idioma",
+  temaEscuro: "Tema escuro",
+  temaClaro: "Tema claro",
   doar: "Doar",
   fechar: "Fechar",
   doarTitulo: "Apoiar este site",
@@ -183,15 +214,38 @@ const ptBR: Copy = {
   doarErro: "Não foi possível gerar o código agora.",
   fotoAlt: (nome) => `Foto de ${nome} publicada pelo TSE`,
   carregando: "Carregando a apuração…",
+  mapaTitulo: "Mapa",
+  graficoTitulo: "Por estado",
+  municipiosTitulo: "Municípios",
+  verMunicipios: "Toque num estado para ver os municípios.",
+  naFrente: (nome, votos) => `${nome} está na frente por ${votos} votos.`,
+  paraPassar: (nome, votos) => `Para ${nome} passar, faltam ${votos} votos.`,
+  empatePlacar: "Empate neste momento. Um voto muda quem fica na frente.",
+  maioriaSimples: (nome) => `${nome} já tem mais da metade dos votos válidos.`,
+  estadosNaFrente: (nome, n) => `${nome} está na frente em ${n} estados.`,
+  opiniaoFecha: (nome) => `Se fechar assim, eu fico com ${nome}.`,
+  opiniaoAberta: (nome) => `O placar ainda pode virar. Neste instante, eu fico com ${nome}.`,
+  apresentador: "Apresentadora",
+  apresentadorOuvir: "Ouvir o placar",
+  semDisputa: "Ainda não dá para separar os dois nomes desta disputa.",
+  municipioDele: (nome, n) => `${nome} na frente em ${n} municípios já lidos.`,
+  urnas: (pct) => `${pct} das urnas apuradas`,
+  cenarioSegue: "Neste 1º turno ninguém está eleito. Os dois seguem.",
+  cenarioEleito: (nome) => `${nome} está eleito neste cenário: o outro não alcança nem com os votos que ainda faltam.`,
+  cenarioAberto: (nome, votos) => `${nome} lidera, mas ainda não está eleito. Ainda cabem ${votos} votos.`,
+  cenarioAbertoSemConta: (nome) => `${nome} lidera, mas a apuração não fechou. Ainda não está eleito.`,
+  cenarioEmpate: "Empate. Ninguém está eleito.",
+  ativarAudio: "Ouvir",
+  pararAudio: "Sem áudio",
 };
 
 const ptPT: Copy = {
   ...ptBR,
-  metaTitle: "Segunda volta 2026 — a conta por município",
-  metaDescription: "Acompanhe presidente e governadores na segunda volta de 2026 com os ficheiros públicos do TSE, somando os municípios.",
+  metaTitle: "Segunda volta 2026",
+  metaDescription: "Acompanhe presidente e governadores na segunda volta de 2026 com os ficheiros públicos do TSE.",
   kicker: "Eleições 2026 · fonte TSE",
-  title: "Segunda volta, município a município",
-  lead: "Presidente e governador. O número grande é uma soma: as assembleias de voto passam a município, os municípios a estado, os estados ao Brasil.",
+  title: "Segunda volta 2026",
+  lead: "Presidente e governadores, com os números oficiais do TSE.",
   live: "Apuramento em direto",
   waiting: "A aguardar a segunda volta",
   readAt: (hora) => `lido às ${hora}`,
@@ -212,6 +266,8 @@ const ptPT: Copy = {
   erroRede: "Não foi possível ler o TSE agora.",
   erroMunicipio: "Não foi possível ler este município.",
   erroSoma: "A soma dos municípios falhou.",
+  erroLimite: "Demasiados pedidos de uma vez. Espere um momento e tente outra vez.",
+  rastreio: (id) => `Rastreio: ${id}`,
   arquivoNacional: (quando) => `Ficheiro nacional do TSE: ${quando} (Brasília)`,
   comoTotal: "Como este total foi feito",
   comoTotalTexto: "Somei os ficheiros de cada estado e do estrangeiro. Esse resultado tem de coincidir com o ficheiro único do Brasil. Uma diferença, se existir, aparece porque o TSE grava esses ficheiros em instantes diferentes.",
@@ -252,6 +308,8 @@ const ptPT: Copy = {
   modoAguardando: "Números da primeira volta, de quem segue",
   modoDefinido: "Decidido na primeira volta",
   idioma: "Idioma",
+  temaEscuro: "Tema escuro",
+  temaClaro: "Tema claro",
   doar: "Doar",
   fechar: "Fechar",
   doarTitulo: "Apoiar este sítio",
@@ -260,15 +318,38 @@ const ptPT: Copy = {
   doarErro: "Não foi possível gerar o código agora.",
   fotoAlt: (nome) => `Fotografia de ${nome} publicada pelo TSE`,
   carregando: "A carregar o apuramento…",
+  mapaTitulo: "Mapa",
+  graficoTitulo: "Por estado",
+  municipiosTitulo: "Municípios",
+  verMunicipios: "Toque num estado para ver os municípios.",
+  naFrente: (nome, votos) => `${nome} está à frente por ${votos} votos.`,
+  paraPassar: (nome, votos) => `Para ${nome} passar, faltam ${votos} votos.`,
+  empatePlacar: "Empate neste momento. Um voto muda quem fica à frente.",
+  maioriaSimples: (nome) => `${nome} já tem mais de metade dos votos válidos.`,
+  estadosNaFrente: (nome, n) => `${nome} está à frente em ${n} estados.`,
+  opiniaoFecha: (nome) => `Se fechar assim, fico com ${nome}.`,
+  opiniaoAberta: (nome) => `O placar ainda pode virar. Neste instante, fico com ${nome}.`,
+  apresentador: "Apresentadora",
+  apresentadorOuvir: "Ouvir o placar",
+  semDisputa: "Ainda não dá para separar os dois nomes desta disputa.",
+  municipioDele: (nome, n) => `${nome} à frente em ${n} municípios já lidos.`,
+  urnas: (pct) => `${pct} das urnas apuradas`,
+  cenarioSegue: "Nesta primeira volta ninguém está eleito. Os dois seguem.",
+  cenarioEleito: (nome) => `${nome} está eleito neste cenário: o outro não alcança nem com os votos que ainda faltam.`,
+  cenarioAberto: (nome, votos) => `${nome} lidera, mas ainda não está eleito. Ainda cabem ${votos} votos.`,
+  cenarioAbertoSemConta: (nome) => `${nome} lidera, mas a apuração não fechou. Ainda não está eleito.`,
+  cenarioEmpate: "Empate. Ninguém está eleito.",
+  ativarAudio: "Ouvir",
+  pararAudio: "Sem áudio",
   buscarSoma: "Pesquisar na soma",
 };
 
 const es: Copy = {
-  metaTitle: "Segunda vuelta 2026 — la cuenta por municipio",
-  metaDescription: "Sigue al presidente y a los gobernadores en la segunda vuelta de 2026 con los archivos públicos del TSE, sumando los municipios.",
+  metaTitle: "Segunda vuelta 2026",
+  metaDescription: "Sigue al presidente y a los gobernadores en la segunda vuelta de 2026 con los archivos públicos del TSE.",
   kicker: "Elecciones 2026 · fuente TSE",
-  title: "Segunda vuelta, municipio a municipio",
-  lead: "Presidente y gobernador. La cifra grande es una suma: las mesas hacen el municipio, los municipios el estado y los estados Brasil.",
+  title: "Segunda vuelta 2026",
+  lead: "Presidente y gobernadores, con las cifras oficiales del TSE.",
   live: "Escrutinio en directo",
   waiting: "A la espera de la segunda vuelta",
   readAt: (hora) => `leído a las ${hora}`,
@@ -295,6 +376,8 @@ const es: Copy = {
   erroRede: "No se ha podido leer el TSE ahora.",
   erroMunicipio: "No se ha podido leer este municipio.",
   erroSoma: "Ha fallado la suma de los municipios.",
+  erroLimite: "Demasiadas peticiones a la vez. Espere un momento y vuelva a intentarlo.",
+  rastreio: (id) => `Rastreo: ${id}`,
   presidenteBrasil: "Presidente en Brasil",
   arquivoNacional: (quando) => `Archivo nacional del TSE: ${quando} (Brasilia)`,
   comoTotal: "Cómo se ha hecho este total",
@@ -348,6 +431,8 @@ const es: Copy = {
   modoAguardando: "Cifras de la primera vuelta, de quien sigue",
   modoDefinido: "Decidido en la primera vuelta",
   idioma: "Idioma",
+  temaEscuro: "Tema oscuro",
+  temaClaro: "Tema claro",
   doar: "Donar",
   fechar: "Cerrar",
   doarTitulo: "Apoyar este sitio",
@@ -356,14 +441,37 @@ const es: Copy = {
   doarErro: "No se ha podido generar el código ahora.",
   fotoAlt: (nome) => `Foto de ${nome} publicada por el TSE`,
   carregando: "Cargando el escrutinio…",
+  mapaTitulo: "Mapa",
+  graficoTitulo: "Por estado",
+  municipiosTitulo: "Municipios",
+  verMunicipios: "Toque un estado para ver los municipios.",
+  naFrente: (nome, votos) => `${nome} va delante por ${votos} votos.`,
+  paraPassar: (nome, votos) => `Para que ${nome} adelante, faltan ${votos} votos.`,
+  empatePlacar: "Empate ahora mismo. Un voto cambia quién va delante.",
+  maioriaSimples: (nome) => `${nome} ya tiene más de la mitad de los votos válidos.`,
+  estadosNaFrente: (nome, n) => `${nome} va delante en ${n} estados.`,
+  opiniaoFecha: (nome) => `Si cierra así, me quedo con ${nome}.`,
+  opiniaoAberta: (nome) => `El marcador todavía puede darse la vuelta. Ahora mismo, me quedo con ${nome}.`,
+  apresentador: "Presentadora",
+  apresentadorOuvir: "Escuchar el marcador",
+  semDisputa: "Todavía no se pueden separar los dos nombres de esta disputa.",
+  municipioDele: (nome, n) => `${nome} va delante en ${n} municipios ya leídos.`,
+  urnas: (pct) => `${pct} de las urnas escrutadas`,
+  cenarioSegue: "En esta primera vuelta nadie está elegido. Los dos siguen.",
+  cenarioEleito: (nome) => `${nome} está elegido en este escenario: el otro no alcanza ni con los votos que faltan.`,
+  cenarioAberto: (nome, votos) => `${nome} va delante, pero todavía no está elegido. Aún caben ${votos} votos.`,
+  cenarioAbertoSemConta: (nome) => `${nome} va delante, pero el escrutinio no cerró. Todavía no está elegido.`,
+  cenarioEmpate: "Empate. Nadie está elegido.",
+  ativarAudio: "Escuchar",
+  pararAudio: "Sin audio",
 };
 
 const en: Copy = {
-  metaTitle: "2026 runoff — the count by municipality",
-  metaDescription: "Follow the presidential and governor races in Brazil’s 2026 runoff using public TSE files, added up from municipalities.",
+  metaTitle: "2026 runoff",
+  metaDescription: "Follow the presidential and governor races in Brazil’s 2026 runoff using public TSE files.",
   kicker: "2026 election · TSE source",
-  title: "The runoff, municipality by municipality",
-  lead: "President and governor. The large number is a sum: polling stations make a municipality, municipalities make a state, states make Brazil.",
+  title: "2026 runoff",
+  lead: "President and governors, from the official TSE numbers.",
   live: "Live count",
   waiting: "Waiting for the runoff",
   readAt: (hora) => `read at ${hora}`,
@@ -390,6 +498,8 @@ const en: Copy = {
   erroRede: "The TSE could not be read just now.",
   erroMunicipio: "This municipality could not be read.",
   erroSoma: "Adding up the municipalities failed.",
+  erroLimite: "Too many requests at once. Wait a moment and try again.",
+  rastreio: (id) => `Trace: ${id}`,
   presidenteBrasil: "President in Brazil",
   arquivoNacional: (quando) => `National TSE file: ${quando} (Brasília)`,
   comoTotal: "How this total was built",
@@ -443,6 +553,8 @@ const en: Copy = {
   modoAguardando: "First-round numbers, for those still in",
   modoDefinido: "Decided in the first round",
   idioma: "Language",
+  temaEscuro: "Dark theme",
+  temaClaro: "Light theme",
   doar: "Donate",
   fechar: "Close",
   doarTitulo: "Support this site",
@@ -451,6 +563,29 @@ const en: Copy = {
   doarErro: "The code could not be generated just now.",
   fotoAlt: (nome) => `Photo of ${nome} published by the TSE`,
   carregando: "Loading the count…",
+  mapaTitulo: "Map",
+  graficoTitulo: "By state",
+  municipiosTitulo: "Municipalities",
+  verMunicipios: "Choose a state to see its municipalities.",
+  naFrente: (nome, votos) => `${nome} leads by ${votos} votes.`,
+  paraPassar: (nome, votos) => `${nome} needs ${votos} votes to move ahead.`,
+  empatePlacar: "It is a tie right now. One vote changes who leads.",
+  maioriaSimples: (nome) => `${nome} already has more than half of the valid votes.`,
+  estadosNaFrente: (nome, n) => `${nome} leads in ${n} states.`,
+  opiniaoFecha: (nome) => `If it ends like this, I go with ${nome}.`,
+  opiniaoAberta: (nome) => `This can still turn. Right now, I go with ${nome}.`,
+  apresentador: "Anchor",
+  apresentadorOuvir: "Hear the count",
+  semDisputa: "The two names in this race are not separated yet.",
+  municipioDele: (nome, n) => `${nome} leads in ${n} municipalities read so far.`,
+  urnas: (pct) => `${pct} of ballot boxes counted`,
+  cenarioSegue: "Nobody is elected in this first round. Both go on.",
+  cenarioEleito: (nome) => `${nome} is elected in this scenario: the other cannot catch up even with the votes still out.`,
+  cenarioAberto: (nome, votos) => `${nome} leads, but is not elected yet. ${votos} votes can still come in.`,
+  cenarioAbertoSemConta: (nome) => `${nome} leads, but the count is still open. Not elected yet.`,
+  cenarioEmpate: "Tie. Nobody is elected.",
+  ativarAudio: "Listen",
+  pararAudio: "Mute",
 };
 
 export const MENSAGENS: Record<Locale, Copy> = { "pt-BR": ptBR, "pt-PT": ptPT, es, en };

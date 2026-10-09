@@ -3,14 +3,39 @@
 @tailwind utilities;
 
 :root {
-  --bg: #efe6d8;
-  --ink: #1c1916;
-  --paper: #fffdf8;
-  --line: #e3d6c4;
-  --muted: #62594e;
-  --green: #0e6b4f;
-  --green-soft: #e6f4ee;
+  color-scheme: light;
+  --bg: #f3f5f8;
+  --ink: #14181f;
+  --paper: #ffffff;
+  --line: #e3e7ee;
+  --muted: #5c6673;
+  --green: #0f6b4c;
+  --acao: #0f6b4c;
+  --green-soft: #e8f6ef;
   --mark: #9a3412;
+  --faixa: #14181f;
+  --faixa-texto: #ffffff;
+  --danger-bg: #fff1f2;
+  --track: #e7e9ee;
+  --map-neutro: #e7e9ee;
+}
+
+html.escuro {
+  color-scheme: dark;
+  --bg: #10141a;
+  --ink: #f2f4f7;
+  --paper: #1a2028;
+  --line: #2c3440;
+  --muted: #a7b0bc;
+  --green: #8fd9b6;
+  --acao: #0f6b4c;
+  --green-soft: #143028;
+  --mark: #f0a07a;
+  --faixa: #0b0e13;
+  --faixa-texto: #f2f4f7;
+  --danger-bg: #3a1c22;
+  --track: #2a313b;
+  --map-neutro: #2a313b;
 }
 
 html {
@@ -19,14 +44,16 @@ html {
 
 body {
   min-height: 100%;
-  background:
-    radial-gradient(900px 420px at 0% -10%, rgba(255, 250, 240, 0.9), transparent 55%),
-    var(--bg);
+  background: var(--bg);
   color: var(--ink);
 }
 
 ::selection {
-  background: #d7efe4;
+  background: #d9e6f5;
+}
+
+html.escuro ::selection {
+  background: #24466e;
 }
 
 select,
@@ -40,11 +67,24 @@ input {
   min-height: 48px;
 }
 
+.boca-fala {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: boca 0.28s ease-in-out infinite;
+}
+
+@keyframes boca {
+  50% {
+    transform: scaleY(0.3);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
   }
-  .pulso {
+  .pulso,
+  .boca-fala {
     animation: none !important;
   }
 }

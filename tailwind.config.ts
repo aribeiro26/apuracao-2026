@@ -9,7 +9,7 @@ const config: Config = {
         serif: ["var(--font-serif)", "Georgia", "serif"],
       },
       boxShadow: {
-        card: "0 12px 40px rgba(70, 46, 12, 0.06)",
+        card: "0 16px 40px rgba(20, 24, 31, 0.1)",
       },
     },
   },

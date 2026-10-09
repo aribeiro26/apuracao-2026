@@ -1,6 +1,7 @@
-import { faseDe, type Candidato, type Cargo, type CidadeApurada, type Modo, type MunicipioRef, type Resultado, type Totais } from "./conta";
+import { faseDe, somarResultados, type Candidato, type Cargo, type CidadeApurada, type Modo, type MunicipioRef, type Resultado, type Totais } from "./conta";
 import { titlePt } from "./format";
-import { EXTERIOR, UFS, nomeUf, ufValida } from "./uf";
+import { soDigitos, textoPlano } from "./texto";
+import { EXTERIOR, UFS, UFS_PRESIDENTE, nomeUf, ufValida } from "./uf";
 
 export type { Candidato, Cargo, CidadeApurada, Diferenca, Fase, Modo, MunicipioRef, Resultado, Totais } from "./conta";
 export { comparar, somarCidades, somarResultados } from "./conta";
@@ -90,7 +91,16 @@ function percentualTse(valor: unknown): number {
   return Number.isFinite(numero) ? numero : 0;
 }
 
+function rotulo(valor: unknown, vazio = ""): string {
+  const limpo = textoPlano(valor, 80);
+  if (!limpo) return vazio;
+  return titlePt(limpo);
+}
+
 function urlsFoto(codigo: string, codigoPrimeiro: string, pasta: string, sqcand: string): string[] {
+  if (!/^\d{1,8}$/.test(codigo) || !/^\d{1,8}$/.test(codigoPrimeiro)) return [];
+  if (!/^[a-z]{2}$/.test(pasta)) return [];
+  if (!/^\d{1,12}$/.test(sqcand)) return [];
   const montar = (eleicao: string, uf: string) =>
     `${BASE}/${CICLO}/${eleicao}/fotos/${uf}/${sqcand}.jpeg`;
   const pastas = pasta === "br" ? ["br"] : [pasta, "br"];
@@ -134,18 +144,19 @@ function candidatosDe(
       for (const partido of grupo.par ?? []) {
         for (const cand of partido.cand ?? []) {
           const vice = (cand.vs ?? []).find((pessoa) => pessoa.tp === "v");
-          const sqcand = cand.sqcand ?? "";
+          const sqcand = soDigitos(cand.sqcand, 12);
+          const nomeVice = vice ? rotulo(vice.nmu || vice.nm) : "";
           lista.push({
             sqcand,
-            nome: titlePt(cand.nmu || cand.nm || "Candidato"),
-            nomeCompleto: cand.nmu && cand.nm ? titlePt(cand.nm) : null,
-            numero: cand.n ?? "",
-            partido: partido.sg ?? "",
-            vice: vice ? titlePt(vice.nmu || vice.nm || "") : null,
+            nome: rotulo(cand.nmu || cand.nm, "Candidato"),
+            nomeCompleto: cand.nmu && cand.nm ? rotulo(cand.nm) : null,
+            numero: soDigitos(cand.n, 6),
+            partido: textoPlano(partido.sg, 24).toUpperCase(),
+            vice: nomeVice || null,
             votos: inteiro(cand.vap),
             pctTse: percentualTse(cand.pvap),
-            situacao: cand.st ?? "",
-            fase: faseDe(cand.st ?? ""),
+            situacao: textoPlano(cand.st, 40),
+            fase: faseDe(textoPlano(cand.st, 40)),
             fotos: sqcand ? urlsFoto(codigo, codigoPrimeiro, pasta, sqcand) : [],
           });
         }
@@ -278,7 +289,7 @@ async function lerArquivo(
     turno: turnoArquivo,
     codigoEleicao: alvo.codigo,
     codigoPrimeiroTurno: primeiro.codigo,
-    atualizadoEm: `${raw.dg ?? ""} ${raw.hg ?? ""}`.trim(),
+    atualizadoEm: textoPlano(`${raw.dg ?? ""} ${raw.hg ?? ""}`, 40),
     url,
     totais: totaisDe(raw),
     candidatos,
@@ -314,11 +325,11 @@ export async function listarMunicipios(cargo: Cargo, uf: string): Promise<Munici
       const bloco = (cfg.abr ?? []).find((item) => item.cd?.toLowerCase() === sigla);
       if (!bloco) continue;
       return (bloco.mu ?? [])
-        .filter((mu) => mu.cd && mu.nm)
+        .filter((mu) => /^\d{5}$/.test(mu.cd ?? "") && mu.nm)
         .map((mu) => ({
           codigo: mu.cd as string,
-          ibge: mu.cdi ?? "",
-          nome: titlePt(mu.nm as string),
+          ibge: soDigitos(mu.cdi, 8),
+          nome: rotulo(mu.nm, "Município"),
           capital: (mu.c ?? "").toLowerCase() === "s",
         }))
         .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
@@ -393,5 +404,39 @@ export async function lerLote(
   });
   const oficial = await obterResultado(cargo, sigla);
   return { total: municipios.length, cidades, turno: oficial.turno, modo: oficial.modo };
+}
+
+export async function montarPainel(): Promise<{
+  presidente: Resultado;
+  somaEstados: Resultado;
+  unidades: Resultado[];
+  governadores: Resultado[];
+}> {
+  const presidente = await obterResultado("presidente", "br");
+  const [governadores, presidenciais] = await Promise.all([
+    mapPool(UFS, 8, async (uf) => {
+      try {
+        return await obterResultado("governador", uf.sigla);
+      } catch (erro) {
+        if (erro instanceof NaoPublicado) return null;
+        throw erro;
+      }
+    }),
+    mapPool(UFS_PRESIDENTE, 8, async (uf) => {
+      try {
+        return await obterResultado("presidente", uf.sigla);
+      } catch (erro) {
+        if (erro instanceof NaoPublicado) return null;
+        throw erro;
+      }
+    }),
+  ]);
+  const unidades = presidenciais.filter((item) => item != null);
+  return {
+    presidente,
+    somaEstados: somarResultados(presidente, unidades),
+    unidades,
+    governadores: governadores.filter((item) => item != null),
+  };
 }
 

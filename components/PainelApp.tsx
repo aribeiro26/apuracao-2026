@@ -2,10 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { carregarPainel, lerLoteMunicipios, lerMunicipio, municipiosDoEstado } from "@/app/acoes";
+import { Apresentador } from "@/components/Apresentador";
 import { CandidatoCard } from "@/components/CandidatoCard";
+import { GraficoEstados, MapaBrasil, MensagemPlacar, MosaicoMunicipios, primeiroNome, textoDaFrente } from "@/components/DisputaVisual";
 import { BotaoDoar } from "@/components/Doar";
-import { SeletorIdioma, useI18n } from "@/components/LocaleProvider";
-import { comparar, somarCidades, type Candidato, type CidadeApurada, type Modo, type Resultado } from "@/lib/conta";
+import { BotaoTema, SeletorIdioma, useI18n } from "@/components/LocaleProvider";
+import { somarCidades, type Candidato, type CidadeApurada, type Modo, type Resultado } from "@/lib/conta";
+import { contarLados, parDaDisputa, quemLidera, vencedorLocal } from "@/lib/placar";
+import { rastreioVisivel } from "@/lib/texto";
 import { numero, percentual, razao } from "@/lib/format";
 import { intlLocale } from "@/lib/locale";
 import { UFS, UFS_PRESIDENTE, nomeLocal } from "@/lib/uf";
@@ -14,7 +19,6 @@ type Visao = "tudo" | "presidente" | "governador";
 type CargoLocal = "presidente" | "governador";
 
 type Painel = {
-  aviso: string;
   presidente: Resultado;
   somaEstados: Resultado;
   unidades: Resultado[];
@@ -27,10 +31,13 @@ type Varredura = {
   modo: Modo;
   turno: 1 | 2;
   erro: string | null;
+  rastreio: string;
   pronta: boolean;
 };
 
-const VAZIA: Varredura = { cidades: [], total: 0, modo: "aguardando", turno: 1, erro: null, pronta: false };
+type Aviso = { codigo: string; rastreio: string };
+
+const VAZIA: Varredura = { cidades: [], total: 0, modo: "aguardando", turno: 1, erro: null, rastreio: "", pronta: false };
 const ALVO_APURACAO = "2026-10-25T17:00:00-03:00";
 
 export function PainelApp() {
@@ -44,7 +51,7 @@ export function PainelApp() {
   const mun = params.get("mun") ?? "";
 
   const [painel, setPainel] = useState<Painel | null>(null);
-  const [erroPainel, setErroPainel] = useState<string | null>(null);
+  const [erroPainel, setErroPainel] = useState<Aviso | null>(null);
   const [atualizadoCliente, setAtualizadoCliente] = useState<string>("");
   const [soSegundo, setSoSegundo] = useState(true);
   const [municipios, setMunicipios] = useState<{ codigo: string; nome: string; capital: boolean }[]>([]);
@@ -53,32 +60,39 @@ export function PainelApp() {
   const [governadorUf, setGovernadorUf] = useState<Varredura>(VAZIA);
   const [cidadePresidente, setCidadePresidente] = useState<Resultado | null>(null);
   const [cidadeGovernador, setCidadeGovernador] = useState<Resultado | null>(null);
-  const [erroLocal, setErroLocal] = useState<string | null>(null);
+  const [erroLocal, setErroLocal] = useState<Aviso | null>(null);
 
   const aoVivo = painel?.presidente.modo === "ao-vivo" || painel?.governadores.some((item) => item.modo === "ao-vivo");
 
   useEffect(() => {
     let ativo = true;
+    let timer = 0;
     async function carregar() {
       try {
-        const resposta = await fetch("/api/painel", { cache: "no-store" });
-        const json = await resposta.json();
-        if (!resposta.ok) throw new Error(json.erro || "rede");
+        const json = await carregarPainel();
         if (!ativo) return;
-        setPainel(json as Painel);
+        if (!json.ok) {
+          setErroPainel({ codigo: json.erro === "limite" ? "limite" : "rede", rastreio: json.rastreio });
+          timer = window.setTimeout(carregar, 60_000);
+          return;
+        }
+        setPainel(json);
         setErroPainel(null);
         setAtualizadoCliente(new Date().toLocaleTimeString(idioma, { hour: "2-digit", minute: "2-digit" }));
+        const vivo = json.presidente.modo === "ao-vivo" || json.governadores.some((item) => item.modo === "ao-vivo");
+        timer = window.setTimeout(carregar, vivo ? 20_000 : 60_000);
       } catch {
-        if (ativo) setErroPainel("rede");
+        if (!ativo) return;
+        setErroPainel({ codigo: "rede", rastreio: "" });
+        timer = window.setTimeout(carregar, 60_000);
       }
     }
     void carregar();
-    const id = setInterval(carregar, aoVivo ? 20000 : 60000);
     return () => {
       ativo = false;
-      clearInterval(id);
+      window.clearTimeout(timer);
     };
-  }, [aoVivo, idioma]);
+  }, [idioma]);
 
   useEffect(() => {
     if (!uf || uf === "zz") {
@@ -86,10 +100,10 @@ export function PainelApp() {
       return;
     }
     let ativo = true;
-    void fetch(`/api/municipios?cargo=presidente&uf=${uf}`)
-      .then((resposta) => resposta.json())
+    void municipiosDoEstado(uf)
       .then((json) => {
-        if (ativo && Array.isArray(json.municipios)) setMunicipios(json.municipios);
+        if (ativo && json.ok) setMunicipios(json.municipios);
+        else if (ativo) setMunicipios([]);
       })
       .catch(() => {
         if (ativo) setMunicipios([]);
@@ -120,13 +134,13 @@ export function PainelApp() {
     const controle = new AbortController();
     setErroLocal(null);
     async function ler(cargo: CargoLocal, definir: (valor: Resultado | null) => void) {
-      const resposta = await fetch(`/api/municipio?cargo=${cargo}&uf=${uf}&codigo=${mun}`, {
-        signal: controle.signal,
-        cache: "no-store",
-      });
-      const json = await resposta.json();
-      if (!resposta.ok) throw new Error("municipio");
-      if (!json.cidade?.ok) {
+      const json = await lerMunicipio(cargo, uf, mun);
+      if (controle.signal.aborted) return;
+      if (!json.ok) {
+        setErroLocal({ codigo: json.erro === "limite" ? "limite" : "municipio", rastreio: json.rastreio });
+        return;
+      }
+      if (!json.cidade.ok || !json.cidade.totais || !json.cidade.candidatos) {
         definir(null);
         return;
       }
@@ -149,7 +163,8 @@ export function PainelApp() {
         if (visao !== "governador") await ler("presidente", setCidadePresidente);
         if (visao !== "presidente" && uf !== "zz") await ler("governador", setCidadeGovernador);
       } catch (erro) {
-        if (!controle.signal.aborted) setErroLocal("municipio");
+        if (controle.signal.aborted) return;
+        setErroLocal({ codigo: "municipio", rastreio: "" });
       }
     })();
     return () => controle.abort();
@@ -186,9 +201,58 @@ export function PainelApp() {
   }, [busca, presidenteUf.cidades, governadorUf.cidades]);
 
   const opcoesUf = visao === "governador" ? UFS : UFS_PRESIDENTE;
+  const nacional = painel?.somaEstados.candidatos.length ? painel.somaEstados : painel?.presidente ?? null;
+  const falas = useMemo(() => {
+    if (!nacional) return [];
+    const par = parDaDisputa(nacional.candidatos);
+    if (!par) return [copy.semDisputa];
+    const lider = quemLidera(par);
+    const contagem = contarLados(par, painel?.unidades ?? []);
+    const apurado = razao(nacional.totais.secoesApuradas, nacional.totais.secoesTotal);
+    const frases = [
+      textoDaFrente(par, nacional, copy, idioma),
+      copy.estadosNaFrente(primeiroNome(par.azul.nome), contagem.azul),
+      copy.estadosNaFrente(primeiroNome(par.vermelho.nome), contagem.vermelho),
+    ];
+    if (lider) frases.push(apurado >= 99.5 ? copy.opiniaoFecha(primeiroNome(lider.nome)) : copy.opiniaoAberta(primeiroNome(lider.nome)));
+    if (uf && presidenteUf.cidades.length) {
+      const azuis = presidenteUf.cidades.filter((cidade) => vencedorLocal(par, cidade.candidatos) === "azul").length;
+      const vermelhos = presidenteUf.cidades.filter((cidade) => vencedorLocal(par, cidade.candidatos) === "vermelho").length;
+      frases.push(copy.municipioDele(primeiroNome(par.azul.nome), azuis));
+      frases.push(copy.municipioDele(primeiroNome(par.vermelho.nome), vermelhos));
+    }
+    return frases;
+  }, [nacional, painel?.unidades, copy, idioma, uf, presidenteUf.cidades]);
+
+  const urnas = useMemo(() => {
+    if (!painel) return null;
+    if (mun && visao !== "governador" && cidadePresidente) {
+      return { apuradas: cidadePresidente.totais.secoesApuradas, total: cidadePresidente.totais.secoesTotal };
+    }
+    if (mun && visao === "governador" && cidadeGovernador) {
+      return { apuradas: cidadeGovernador.totais.secoesApuradas, total: cidadeGovernador.totais.secoesTotal };
+    }
+    if (uf && uf !== "zz") {
+      const varredura = visao === "governador" ? governadorUf : presidenteUf;
+      const oficiais = varredura.cidades.filter((cidade) => cidade.ok && cidade.totais);
+      if (varredura.pronta && oficiais.length) {
+        return {
+          apuradas: oficiais.reduce((soma, cidade) => soma + (cidade.totais?.secoesApuradas ?? 0), 0),
+          total: oficiais.reduce((soma, cidade) => soma + (cidade.totais?.secoesTotal ?? 0), 0),
+        };
+      }
+      const arquivo = visao === "governador"
+        ? painel.governadores.find((item) => item.uf === uf)
+        : painel.unidades.find((item) => item.uf === uf);
+      if (arquivo) return { apuradas: arquivo.totais.secoesApuradas, total: arquivo.totais.secoesTotal };
+    }
+    return { apuradas: painel.somaEstados.totais.secoesApuradas, total: painel.somaEstados.totais.secoesTotal };
+  }, [painel, mun, uf, visao, cidadePresidente, cidadeGovernador, governadorUf, presidenteUf]);
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 pb-16 pt-6 sm:px-6">
+    <>
+    <BarraUrnas apuradas={urnas?.apuradas ?? 0} total={urnas?.total ?? 0} />
+    <div className="mx-auto w-full max-w-6xl px-4 pb-28 pt-6 sm:px-6">
       <header className="flex flex-col gap-4 border-b border-[var(--line)] pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <p className="text-sm font-medium text-[var(--green)]">{copy.kicker}</p>
@@ -197,6 +261,7 @@ export function PainelApp() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <SeletorIdioma />
+          <BotaoTema />
           <BotaoDoar />
           <p className="inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--paper)] px-3 py-2 text-sm">
             <span className={`pulso h-2.5 w-2.5 rounded-full ${aoVivo ? "animate-pulse bg-[var(--green)]" : "bg-[var(--mark)]"}`} />
@@ -207,9 +272,8 @@ export function PainelApp() {
       </header>
 
       <Contagem />
-      <ComoFunciona />
 
-      <div className="sticky top-0 z-20 -mx-4 mt-6 border-y border-[var(--line)] bg-[#efe6d8]/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+      <div className="sticky top-12 z-20 -mx-4 mt-6 border-y border-[var(--line)] bg-[var(--bg)]/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
         <div className="grid gap-3 md:grid-cols-[auto_1fr_1fr]">
           <div className="flex rounded-full bg-[var(--paper)] p-1">
             {(["tudo", "presidente", "governador"] as Visao[]).map((item) => (
@@ -258,8 +322,12 @@ export function PainelApp() {
         </div>
       </div>
 
-      {erroPainel && <p className="mt-4 rounded-2xl bg-[#fff1f2] px-4 py-3 text-sm">{copy.erroRede}</p>}
-      {erroLocal && <p className="mt-4 rounded-2xl bg-[#fff1f2] px-4 py-3 text-sm">{copy.erroMunicipio}</p>}
+      {erroPainel && (
+        <AvisoErro texto={erroPainel.codigo === "limite" ? copy.erroLimite : copy.erroRede} rastreio={erroPainel.rastreio} />
+      )}
+      {erroLocal && (
+        <AvisoErro texto={erroLocal.codigo === "limite" ? copy.erroLimite : copy.erroMunicipio} rastreio={erroLocal.rastreio} />
+      )}
 
       {!painel && !erroPainel && <p className="mt-8 text-[var(--muted)]">{copy.lendo}</p>}
 
@@ -272,15 +340,13 @@ export function PainelApp() {
                 modo={painel.presidente.modo}
                 detalhe={painel.presidente.atualizadoEm ? copy.arquivoNacional(painel.presidente.atualizadoEm) : undefined}
               />
-              <Disputa resultado={painel.somaEstados.candidatos.length ? painel.somaEstados : painel.presidente} />
-              <Conferencia
-                titulo={copy.comoTotal}
-                texto={copy.comoTotalTexto}
-                soma={painel.somaEstados}
-                oficial={painel.presidente}
-                completo
-              />
-              <EstadosPresidente unidades={painel.unidades} onEscolher={(sigla) => navegar({ uf: sigla, visao: "presidente" })} />
+              <Disputa resultado={nacional ?? painel.presidente} />
+              {nacional && <MensagemPlacar resultado={nacional} copy={copy} idioma={idioma} />}
+              <div className="grid gap-8 lg:grid-cols-2">
+                <MapaBrasil unidades={painel.unidades} resultado={nacional} copy={copy} locale={locale} idioma={idioma} onEscolher={(sigla) => navegar({ uf: sigla, visao: "presidente" })} />
+                <GraficoEstados unidades={painel.unidades} resultado={nacional} copy={copy} locale={locale} idioma={idioma} onEscolher={(sigla) => navegar({ uf: sigla, visao: "presidente" })} />
+              </div>
+              <p className="text-sm text-[var(--muted)]">{copy.verMunicipios}</p>
             </section>
           )}
 
@@ -306,15 +372,11 @@ export function PainelApp() {
               </div>
             </section>
           )}
-          <p className="text-sm text-[var(--muted)]">{copy.aviso}</p>
         </div>
       )}
 
       {painel && uf && !mun && (
         <div className="mt-8 space-y-10">
-          <p className="text-sm text-[var(--muted)]">
-            {copy.somaLotes(nomeLocal(uf, locale))}
-          </p>
           {visao !== "governador" && (
             <SomaEstado
               titulo={copy.presidenteEm(nomeLocal(uf, locale))}
@@ -327,6 +389,14 @@ export function PainelApp() {
               titulo={copy.governadorEm(nomeLocal(uf, locale))}
               varredura={governadorUf}
               oficial={painel.governadores.find((item) => item.uf === uf) ?? null}
+            />
+          )}
+          {uf !== "zz" && visao !== "governador" && (
+            <MosaicoMunicipios
+              cidades={presidenteUf.cidades}
+              referencia={uf === "br" ? painel.presidente : painel.unidades.find((item) => item.uf === uf) ?? null}
+              copy={copy}
+              idioma={idioma}
             />
           )}
           {uf !== "zz" && (
@@ -367,13 +437,13 @@ export function PainelApp() {
           </button>
           {cidadePresidente && visao !== "governador" && (
             <section className="space-y-4">
-              <Cabecalho titulo={copy.presidenteEm(cidadePresidente.nomeUf)} modo={cidadePresidente.modo} detalhe={copy.municipioEntra} />
+              <Cabecalho titulo={copy.presidenteEm(cidadePresidente.nomeUf)} modo={cidadePresidente.modo} />
               <Disputa resultado={cidadePresidente} />
             </section>
           )}
           {cidadeGovernador && visao !== "presidente" && (
             <section className="space-y-4">
-              <Cabecalho titulo={copy.governadorEm(cidadeGovernador.nomeUf)} modo={cidadeGovernador.modo} detalhe={copy.municipioEntra} />
+              <Cabecalho titulo={copy.governadorEm(cidadeGovernador.nomeUf)} modo={cidadeGovernador.modo} />
               <Disputa resultado={cidadeGovernador} />
             </section>
           )}
@@ -383,7 +453,44 @@ export function PainelApp() {
       <footer className="mt-12 border-t border-[var(--line)] pt-4 text-sm text-[var(--muted)]">
         {copy.rodape}
       </footer>
+      <Apresentador linhas={falas} />
     </div>
+    </>
+  );
+}
+
+function BarraUrnas({ apuradas, total }: { apuradas: number; total: number }) {
+  const { copy, locale } = useI18n();
+  const idioma = intlLocale(locale);
+  const pct = total > 0 ? (apuradas / total) * 100 : 0;
+  const texto = copy.urnas(percentual(pct, 1, idioma));
+  return (
+    <div className="sticky top-0 z-30 border-b border-[var(--line)] bg-[var(--paper)]">
+      <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-2 sm:px-6">
+        <div
+          className="h-2.5 flex-1 overflow-hidden rounded-full bg-[var(--track)]"
+          role="progressbar"
+          aria-valuenow={Math.round(pct)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={texto}
+        >
+          <div className="h-full bg-[var(--acao)]" style={{ width: `${Math.min(100, pct)}%` }} />
+        </div>
+        <p className="shrink-0 text-sm font-medium tabular-nums">{texto}</p>
+      </div>
+    </div>
+  );
+}
+
+function AvisoErro({ texto, rastreio }: { texto: string; rastreio: string }) {
+  const { copy } = useI18n();
+  const id = rastreioVisivel(rastreio);
+  return (
+    <p className="mt-4 rounded-2xl bg-[var(--danger-bg)] px-4 py-3 text-sm">
+      {texto}
+      {id ? <span className="mt-1 block font-mono text-xs">{copy.rastreio(id)}</span> : null}
+    </p>
   );
 }
 
@@ -404,19 +511,23 @@ async function varrer(
   let turno: 1 | 2 = 1;
   try {
     for (let offset = 0; offset <= total; offset += 8) {
-      const resposta = await fetch(`/api/lote?cargo=${cargo}&uf=${uf}&offset=${offset}&limit=8`, { signal, cache: "no-store" });
-      const json = await resposta.json();
-      if (!resposta.ok) throw new Error("soma");
+      if (signal.aborted) return;
+      const json = await lerLoteMunicipios(cargo, uf, offset);
+      if (signal.aborted) return;
+      if (!json.ok) {
+        definir({ cidades, total, modo, turno, erro: json.erro === "limite" ? "limite" : "soma", rastreio: json.rastreio, pronta: false });
+        return;
+      }
       total = json.total as number;
       modo = json.modo as Modo;
       turno = json.turno as 1 | 2;
       cidades.push(...(json.cidades as CidadeApurada[]));
-      definir({ cidades: [...cidades], total, modo, turno, erro: null, pronta: cidades.length >= total });
+      definir({ cidades: [...cidades], total, modo, turno, erro: null, rastreio: "", pronta: cidades.length >= total });
       if (!json.cidades?.length) break;
     }
-  } catch (erro) {
+  } catch {
     if (signal.aborted) return;
-    definir({ cidades, total, modo, turno, erro: "soma", pronta: false });
+    definir({ cidades, total, modo, turno, erro: "soma", rastreio: "", pronta: false });
   }
 }
 
@@ -502,37 +613,6 @@ function Cabecalho({ titulo, modo, detalhe }: { titulo: string; modo: Modo; deta
   );
 }
 
-function Conferencia({
-  titulo,
-  texto,
-  soma,
-  oficial,
-  completo,
-}: {
-  titulo: string;
-  texto: string;
-  soma: Resultado;
-  oficial: Resultado;
-  completo: boolean;
-}) {
-  const { copy, locale } = useI18n();
-  const idioma = intlLocale(locale);
-  const diff = comparar(soma, oficial);
-  const candidatos = diff.candidatos.filter((item) => item.delta !== 0);
-  const bate = completo && diff.votosValidos === 0 && candidatos.length === 0;
-  return (
-    <aside className="rounded-3xl border border-dashed border-[var(--green)] bg-[var(--green-soft)] p-4 text-sm">
-      <h3 className="font-serif text-xl text-[var(--green)]">{titulo}</h3>
-      <p className="mt-1 text-[var(--ink)]">{texto}</p>
-      <p className="mt-2">
-        {copy.soma}: {numero(soma.totais.votosValidos, idioma)} {copy.votosValidosFrase}. {copy.oficial}: {numero(oficial.totais.votosValidos, idioma)}.
-      </p>
-      {bate && <p className="mt-1 font-medium">{copy.contasFecham}</p>}
-      {!bate && completo && <p className="mt-1">{copy.diferenca(numero(diff.votosValidos, idioma), candidatos.length)}</p>}
-    </aside>
-  );
-}
-
 function MiniEstado({ resultado }: { resultado: Resultado }) {
   const { copy, locale } = useI18n();
   const idioma = intlLocale(locale);
@@ -558,25 +638,6 @@ function MiniEstado({ resultado }: { resultado: Resultado }) {
   );
 }
 
-function EstadosPresidente({ unidades, onEscolher }: { unidades: Resultado[]; onEscolher: (uf: string) => void }) {
-  const { copy, locale } = useI18n();
-  const idioma = intlLocale(locale);
-  const lista = [...unidades].sort((a, b) => nomeLocal(a.uf, locale).localeCompare(nomeLocal(b.uf, locale), idioma));
-  return (
-    <div>
-      <h3 className="font-serif text-2xl">{copy.presidenteCadaEstado}</h3>
-      <p className="mb-3 text-sm text-[var(--muted)]">{copy.presidenteCadaEstadoNota}</p>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {lista.map((item) => (
-          <button key={item.uf} type="button" onClick={() => onEscolher(item.uf)} className="rounded-3xl border border-[var(--line)] bg-[var(--paper)] p-4 text-left shadow-card">
-            <MiniEstado resultado={item} />
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function SomaEstado({ titulo, varredura, oficial }: { titulo: string; varredura: Varredura; oficial: Resultado | null }) {
   const { copy } = useI18n();
   const soma = somarCidades("presidente", oficial?.uf ?? "", varredura.cidades, { modo: varredura.modo, turno: varredura.turno });
@@ -589,34 +650,12 @@ function SomaEstado({ titulo, varredura, oficial }: { titulo: string; varredura:
         modo={varredura.modo}
         detalhe={varredura.total ? copy.lidosDe(varredura.cidades.length, varredura.total) : copy.comecandoLeitura}
       />
-      {varredura.erro && <p className="text-sm">{copy.erroSoma}</p>}
-      {resultado ? <Disputa resultado={resultado} /> : <p className="text-sm text-[var(--muted)]">{copy.aindaNao}</p>}
-      {resultado && oficial && (
-        <Conferencia
-          titulo={copy.conferenciaEstado}
-          texto={copy.conferenciaEstadoTexto}
-          soma={resultado}
-          oficial={oficial}
-          completo={varredura.pronta && falhas === 0}
-        />
+      {varredura.erro && (
+        <AvisoErro texto={varredura.erro === "limite" ? copy.erroLimite : copy.erroSoma} rastreio={varredura.rastreio} />
       )}
+      {resultado ? <Disputa resultado={resultado} /> : <p className="text-sm text-[var(--muted)]">{copy.aindaNao}</p>}
       {falhas > 0 && <p className="text-sm">{copy.falhas(falhas)}</p>}
     </section>
-  );
-}
-
-function ComoFunciona() {
-  const { copy } = useI18n();
-  const passos = copy.steps;
-  return (
-    <ol className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      {passos.map(([titulo, texto]) => (
-        <li key={titulo} className="rounded-3xl border border-[var(--line)] bg-[var(--paper)] p-4">
-          <p className="font-serif text-lg">{titulo}</p>
-          <p className="mt-1 text-sm text-[var(--muted)]">{texto}</p>
-        </li>
-      ))}
-    </ol>
   );
 }
 

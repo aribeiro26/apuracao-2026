@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
+import { qrDoacao } from "@/app/acoes";
 import { useI18n } from "@/components/LocaleProvider";
+import { rastreioVisivel } from "@/lib/texto";
 
 export function BotaoDoar() {
   const { copy } = useI18n();
@@ -22,7 +24,7 @@ export function BotaoDoar() {
       <button
         type="button"
         onClick={() => setAberto(true)}
-        className="min-h-11 rounded-full bg-[var(--green)] px-4 text-sm font-medium text-white"
+        className="min-h-11 rounded-full bg-[var(--acao)] px-4 text-sm font-medium text-white"
       >
         {copy.doar}
       </button>
@@ -56,23 +58,26 @@ export function BotaoDoar() {
 function QrDoacao() {
   const { copy } = useI18n();
   const [url, setUrl] = useState<string | null>(null);
-  const [erro, setErro] = useState(false);
+  const [erro, setErro] = useState<{ codigo: "rede" | "limite"; rastreio: string } | null>(null);
 
   useEffect(() => {
     let ativo = true;
     let objeto = "";
-    void fetch("/api/pix", { cache: "no-store" })
-      .then((resposta) => {
-        if (!resposta.ok) throw new Error("pix");
-        return resposta.blob();
-      })
-      .then((blob) => {
+    void qrDoacao()
+      .then((json) => {
         if (!ativo) return;
-        objeto = URL.createObjectURL(blob);
+        if (!json.ok) {
+          setErro({ codigo: json.erro === "limite" ? "limite" : "rede", rastreio: json.rastreio });
+          return;
+        }
+        const binario = atob(json.png);
+        const bytes = new Uint8Array(binario.length);
+        for (let i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
+        objeto = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
         setUrl(objeto);
       })
       .catch(() => {
-        if (ativo) setErro(true);
+        if (ativo) setErro({ codigo: "rede", rastreio: "" });
       });
     return () => {
       ativo = false;
@@ -80,7 +85,15 @@ function QrDoacao() {
     };
   }, []);
 
-  if (erro) return <p className="mt-4 text-sm">{copy.doarErro}</p>;
+  if (erro) {
+    const id = rastreioVisivel(erro.rastreio);
+    return (
+      <p className="mt-4 text-sm">
+        {erro.codigo === "limite" ? copy.erroLimite : copy.doarErro}
+        {id ? <span className="mt-1 block font-mono text-xs">{copy.rastreio(id)}</span> : null}
+      </p>
+    );
+  }
   if (!url) return <p className="mt-4 text-sm text-[var(--muted)]">{copy.carregando}</p>;
   return <img src={url} alt={copy.doarTitulo} width={360} height={360} className="mx-auto mt-4 h-auto w-full max-w-[280px]" />;
 }

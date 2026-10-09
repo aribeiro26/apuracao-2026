@@ -3,11 +3,27 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { MENSAGENS, type Copy } from "@/lib/i18n";
 import { LOCALES, intlLocale, isLocale, type Locale } from "@/lib/locale";
+import { type Tema } from "@/lib/tema";
 
-const Contexto = createContext<{ locale: Locale; copy: Copy; definir: (locale: Locale) => void } | null>(null);
+const Contexto = createContext<{
+  locale: Locale;
+  copy: Copy;
+  definir: (locale: Locale) => void;
+  tema: Tema;
+  alternarTema: () => void;
+} | null>(null);
 
-export function LocaleProvider({ initial, children }: { initial: Locale; children: React.ReactNode }) {
+export function LocaleProvider({
+  initial,
+  temaInicial,
+  children,
+}: {
+  initial: Locale;
+  temaInicial: Tema;
+  children: React.ReactNode;
+}) {
   const [locale, setLocale] = useState<Locale>(initial);
+  const [tema, setTema] = useState<Tema>(temaInicial);
 
   useEffect(() => {
     document.documentElement.lang = intlLocale(locale);
@@ -19,10 +35,19 @@ export function LocaleProvider({ initial, children }: { initial: Locale; childre
       copy: MENSAGENS[locale],
       definir: (proximo: Locale) => {
         setLocale(proximo);
-        document.cookie = `locale=${proximo};path=/;max-age=31536000;samesite=lax`;
+        const seguro = window.location.protocol === "https:" ? ";secure" : "";
+        document.cookie = `locale=${proximo};path=/;max-age=31536000;samesite=lax${seguro}`;
+      },
+      tema,
+      alternarTema: () => {
+        const proximo: Tema = tema === "escuro" ? "claro" : "escuro";
+        setTema(proximo);
+        document.documentElement.classList.toggle("escuro", proximo === "escuro");
+        const seguro = window.location.protocol === "https:" ? ";secure" : "";
+        document.cookie = `tema=${proximo};path=/;max-age=31536000;samesite=lax${seguro}`;
       },
     }),
-    [locale],
+    [locale, tema],
   );
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;
@@ -54,6 +79,21 @@ export function SeletorIdioma() {
         ))}
       </select>
     </label>
+  );
+}
+
+export function BotaoTema() {
+  const { copy, tema, alternarTema } = useI18n();
+  const escuro = tema === "escuro";
+  return (
+    <button
+      type="button"
+      className="min-h-11 rounded-full border border-[var(--line)] bg-[var(--paper)] px-3 text-sm"
+      aria-pressed={escuro}
+      onClick={alternarTema}
+    >
+      {escuro ? copy.temaClaro : copy.temaEscuro}
+    </button>
   );
 }
 
