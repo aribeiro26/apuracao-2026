@@ -6,7 +6,7 @@ import { carregarPainel, lerLoteMunicipios, lerMunicipio, municipiosDoEstado } f
 import { Acompanhar } from "@/components/Acompanhar";
 import { Apresentador } from "@/components/Apresentador";
 import { CandidatoCard } from "@/components/CandidatoCard";
-import { GraficoEstados, MapaBrasil, MensagemPlacar, MosaicoMunicipios, primeiroNome, textoDaFrente } from "@/components/DisputaVisual";
+import { GraficoEstados, GraficoPizza, MapaBrasil, MensagemPlacar, MosaicoMunicipios, primeiroNome, textoDaFrente } from "@/components/DisputaVisual";
 import { BotaoDoar } from "@/components/Doar";
 import { BotaoTema, SeletorIdioma, useI18n } from "@/components/LocaleProvider";
 import { somarCidades, type Candidato, type CidadeApurada, type Modo, type Resultado } from "@/lib/conta";
@@ -348,6 +348,7 @@ export function PainelApp() {
               />
               <Disputa resultado={nacional ?? painel.presidente} />
               {nacional && <MensagemPlacar resultado={nacional} copy={copy} idioma={idioma} />}
+              {nacional && <GraficoPizza resultado={nacional} copy={copy} />}
               <div className="grid gap-8 lg:grid-cols-2">
                 <MapaBrasil unidades={painel.unidades} resultado={nacional} copy={copy} locale={locale} idioma={idioma} onEscolher={(sigla) => navegar({ uf: sigla, visao: "presidente" })} />
                 <GraficoEstados unidades={painel.unidades} resultado={nacional} copy={copy} locale={locale} idioma={idioma} onEscolher={(sigla) => navegar({ uf: sigla, visao: "presidente" })} />

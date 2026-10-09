@@ -27,6 +27,48 @@ export function textoDaFrente(par: Par, resultado: Resultado, copy: Copy, idioma
   return `${copy.naFrente(comPartido(lider.nome, lider.partido), numero(lider.votos - outro.votos, idioma))} ${copy.paraPassar(comPartido(outro.nome, outro.partido), falta)}`;
 }
 
+export function GraficoPizza({ resultado, copy }: { resultado: Resultado; copy: Copy }) {
+  const par = parDaDisputa(resultado.candidatos);
+  if (!par) return null;
+  const total = par.azul.votos + par.vermelho.votos;
+  const fatia = total > 0 ? par.azul.votos / total : 0;
+  const raio = 54;
+  const volta = 2 * Math.PI * raio;
+  const azul = volta * fatia;
+  return (
+    <section>
+      <h3 className="text-lg font-semibold tracking-tight">{copy.graficoTitulo}</h3>
+      <div className="mt-3 flex items-center gap-4">
+        <svg viewBox="0 0 140 140" className="h-36 w-36 shrink-0" role="img" aria-label={copy.graficoTitulo}>
+          <circle cx="70" cy="70" r={raio} fill="none" stroke={total > 0 ? COR.vermelho : COR.neutro} strokeWidth="22" />
+          {total > 0 && (
+            <circle
+              cx="70"
+              cy="70"
+              r={raio}
+              fill="none"
+              stroke={COR.azul}
+              strokeWidth="22"
+              strokeDasharray={`${azul} ${volta - azul}`}
+              transform="rotate(-90 70 70)"
+            />
+          )}
+        </svg>
+        <ul className="space-y-2 text-sm">
+          <li className="flex items-center gap-2">
+            <span className="h-3 w-3 rounded-full" style={{ background: COR.azul }} />
+            {primeiroNome(par.azul.nome)} {total > 0 ? `${Math.round(fatia * 100)}%` : "—"}
+          </li>
+          <li className="flex items-center gap-2">
+            <span className="h-3 w-3 rounded-full" style={{ background: COR.vermelho }} />
+            {primeiroNome(par.vermelho.nome)} {total > 0 ? `${Math.round((1 - fatia) * 100)}%` : "—"}
+          </li>
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 export function MapaBrasil({
   unidades,
   resultado,
@@ -115,7 +157,7 @@ export function GraficoEstados({
                     {vazio ? "—" : `${percentual(fatiaAzul, 0, idioma)} · ${percentual(100 - fatiaAzul, 0, idioma)}`}
                   </span>
                 </span>
-                <span className="mt-1 flex h-2 overflow-hidden rounded-full bg-[var(--line)]">
+                <span className="mt-1 flex h-4 overflow-hidden rounded-full bg-[var(--line)]">
                   {!vazio && (
                     <>
                       <span style={{ width: `${fatiaAzul}%`, background: COR.azul }} />
