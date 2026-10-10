@@ -11,5 +11,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: hl === "pt-BR" ? 1 : 0.4,
     })),
     { url: `${SITE}/enquete`, lastModified: "2026-10-09", changeFrequency: "hourly", priority: 0.8 },
+    { url: `${SITE}/monitor`, lastModified: "2026-10-10", changeFrequency: "hourly", priority: 0.6 },
   ];
 }

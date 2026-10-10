@@ -1,7 +1,8 @@
 import { Pool, neonConfig } from "@neondatabase/serverless";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { drizzle, type NeonDatabase } from "drizzle-orm/neon-serverless";
 import { DIA_ELEICAO, slotDe } from "./amostra";
+import type { Ponto } from "./discrepancia";
 import { contagem } from "./tabelas";
 import { montarPainel, type Resultado } from "./tse";
 
@@ -102,4 +103,25 @@ async function garantir(db: NeonDatabase): Promise<void> {
     });
   }
   await pronto;
+}
+
+export async function lerHistorico(): Promise<Ponto[]> {
+  const db = abrir();
+  if (!db) return [];
+  await garantir(db);
+  const linhas = await db.select().from(contagem).where(eq(contagem.dia, DIA_ELEICAO));
+  return linhas.map((linha) => ({
+    slot: linha.slot,
+    cargo: linha.cargo,
+    uf: linha.uf,
+    nomeUf: linha.nomeUf,
+    sqcand: linha.sqcand,
+    nome: linha.nome,
+    partido: linha.partido,
+    votos: Number(linha.votos),
+    pct: Number(linha.pct),
+    votosValidos: Number(linha.votosValidos),
+    secoesApuradas: Number(linha.secoesApuradas),
+    secoesTotal: Number(linha.secoesTotal),
+  }));
 }

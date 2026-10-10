@@ -559,6 +559,7 @@ export function PainelApp() {
               {nomeLocale(item)}
             </a>
           ))}
+          <a href="/monitor">Monitor</a>
         </nav>
       </footer>
       <MarcaPresenca />
