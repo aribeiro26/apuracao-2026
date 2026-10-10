@@ -18,10 +18,11 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      // Endereço oficial é o www (www.festalugar.com.br/chama-festa).
       {
         source: "/:path*",
-        has: [{ type: "host", value: "www.festalugar.com.br" }],
-        destination: "https://festalugar.com.br/:path*",
+        has: [{ type: "host", value: "festalugar.com.br" }],
+        destination: "https://www.festalugar.com.br/:path*",
         permanent: true,
       },
       {
