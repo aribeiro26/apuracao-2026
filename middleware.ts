@@ -12,7 +12,7 @@ function politica(nonce: string): string {
     "style-src-attr 'unsafe-inline'",
     "img-src 'self' blob: https://resultados.tse.jus.br",
     "font-src 'self'",
-    "connect-src 'self'",
+    "connect-src 'self' https://resultados.tse.jus.br",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

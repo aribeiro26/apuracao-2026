@@ -56,7 +56,7 @@ export function Acompanhar({
     if (!sozinho && !visto) setPerguntar(true);
     if (salvo === "voz" || salvo === "popup") void localSeJaPermitida(definirUf);
     if ("serviceWorker" in navigator) {
-      void navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+      void navigator.serviceWorker.register("/sw.js?v=2").catch(() => undefined);
     }
     const guardar = (evento: Event) => {
       evento.preventDefault();

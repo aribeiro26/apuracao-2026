@@ -1,4 +1,4 @@
-const CACHE = "apuracao-2026-v1";
+const CACHE = "apuracao-2026-v2";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -15,6 +15,9 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  const destino = new URL(event.request.url);
+  // Foto do TSE é outro site. Se o app intercepta, o navegador trata como conexão e a imagem quebra.
+  if (destino.origin !== self.location.origin) return;
   event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
 });
 
