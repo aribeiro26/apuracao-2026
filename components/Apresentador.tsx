@@ -217,7 +217,6 @@ export function Apresentador({
               </option>
             ))}
           </select>
-          <p className="mt-1 text-xs text-[var(--muted)]">{copy.vozNota}</p>
         </div>
       )}
     </aside>
