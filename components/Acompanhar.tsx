@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { carregarPainel } from "@/app/acoes";
 import { useI18n } from "@/components/LocaleProvider";
 import { montarBoletim } from "@/lib/boletim";
 import { ufPorCoordenada } from "@/lib/geo";
@@ -8,6 +9,7 @@ import { intlLocale } from "@/lib/locale";
 import type { Resultado } from "@/lib/conta";
 
 const CHAVE = "apuracao-acompanhar";
+const CHAVE_VISTO = "apuracao-instalar-visto";
 const CHAVE_UF = "apuracao-uf";
 const INTERVALO = 90_000;
 
@@ -18,13 +20,15 @@ type PromptInstalacao = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
+const VAZIO: Resultado[] = [];
+
 export function Acompanhar({
-  presidente,
-  governadores,
+  presidente = null,
+  governadores = VAZIO,
 }: {
-  presidente: Resultado | null;
-  governadores: Resultado[];
-}) {
+  presidente?: Resultado | null;
+  governadores?: Resultado[];
+} = {}) {
   const { copy, locale } = useI18n();
   const idioma = intlLocale(locale);
   const [modo, setModo] = useState<Modo | null>(null);
@@ -33,6 +37,8 @@ export function Acompanhar({
   const [popup, setPopup] = useState<string | null>(null);
   const [ios, setIos] = useState(false);
   const [instalado, setInstalado] = useState(false);
+  const [placa, setPlaca] = useState<Resultado | null>(presidente);
+  const [govs, setGovs] = useState(governadores);
   const instalacao = useRef<PromptInstalacao | null>(null);
   const ultimoTexto = useRef("");
   const ultimoQuando = useRef(0);
@@ -46,7 +52,8 @@ export function Acompanhar({
     const ufSalva = localStorage.getItem(CHAVE_UF);
     if (ufSalva) setUf(ufSalva);
     if (salvo === "voz" || salvo === "popup" || salvo === "nao") setModo(salvo);
-    else setPerguntar(true);
+    const visto = localStorage.getItem(CHAVE_VISTO) === "1";
+    if (!sozinho && !visto) setPerguntar(true);
     if (salvo === "voz" || salvo === "popup") void localSeJaPermitida(definirUf);
     if ("serviceWorker" in navigator) {
       void navigator.serviceWorker.register("/sw.js").catch(() => undefined);
@@ -60,14 +67,33 @@ export function Acompanhar({
   }, []);
 
   useEffect(() => {
+    if (presidente) {
+      setPlaca(presidente);
+      setGovs(governadores);
+      return;
+    }
+    let ativo = true;
+    void carregarPainel()
+      .then((json) => {
+        if (!ativo || !json.ok) return;
+        setPlaca(json.somaEstados.candidatos.length ? json.somaEstados : json.presidente);
+        setGovs(json.governadores);
+      })
+      .catch(() => undefined);
+    return () => {
+      ativo = false;
+    };
+  }, [presidente, governadores]);
+
+  useEffect(() => {
     if (!popup) return;
     const id = window.setTimeout(() => setPopup(null), 14000);
     return () => window.clearTimeout(id);
   }, [popup]);
 
   useEffect(() => {
-    if ((modo !== "voz" && modo !== "popup") || !presidente) return;
-    const texto = montarBoletim(presidente, governadores, uf, copy, locale, idioma);
+    if ((modo !== "voz" && modo !== "popup") || !placa) return;
+    const texto = montarBoletim(placa, govs, uf, copy, locale, idioma);
     if (!texto) return;
     const agora = Date.now();
     const mudou = texto !== ultimoTexto.current;
@@ -76,7 +102,7 @@ export function Acompanhar({
     ultimoQuando.current = agora;
     if (modo === "voz" && document.visibilityState === "visible") falar(texto, idioma);
     else void avisarPopup(texto, copy.avisoTitulo, modo === "popup" ? setPopup : () => undefined);
-  }, [presidente, governadores, uf, modo, copy, locale, idioma]);
+  }, [placa, govs, uf, modo, copy, locale, idioma]);
 
   function definirUf(sigla: string | null) {
     if (!sigla) return;
@@ -86,6 +112,7 @@ export function Acompanhar({
 
   async function aceitar(proximo: "voz" | "popup") {
     localStorage.setItem(CHAVE, proximo);
+    localStorage.setItem(CHAVE_VISTO, "1");
     setModo(proximo);
     setPerguntar(false);
     if (instalacao.current) {
@@ -95,7 +122,7 @@ export function Acompanhar({
     if (proximo === "popup" && "Notification" in window && Notification.permission === "default") {
       await Notification.requestPermission().catch(() => "denied");
     }
-    const texto = montarBoletim(presidente, governadores, uf, copy, locale, idioma);
+    const texto = montarBoletim(placa, govs, uf, copy, locale, idioma);
     ultimoTexto.current = texto;
     ultimoQuando.current = Date.now();
     if (proximo === "voz") falar(texto || copy.vozConfirmada, idioma);
@@ -105,6 +132,7 @@ export function Acompanhar({
 
   function recusar() {
     localStorage.setItem(CHAVE, "nao");
+    localStorage.setItem(CHAVE_VISTO, "1");
     setModo("nao");
     setPerguntar(false);
   }
@@ -112,7 +140,7 @@ export function Acompanhar({
   return (
     <>
       {perguntar && (
-        <div className="fixed inset-0 z-50 grid place-items-end bg-black/40 p-4 sm:place-items-center">
+        <div className="fixed inset-0 z-[100] grid place-items-end bg-black/40 p-4 sm:place-items-center">
           <div role="dialog" aria-labelledby="instalar-titulo" className="w-full max-w-md rounded-3xl border border-[var(--line)] bg-[var(--paper)] p-5 shadow-card">
             <p className="text-sm font-medium text-[var(--green)]">{copy.kicker}</p>
             <h2 id="instalar-titulo" className="mt-1 font-serif text-3xl leading-tight">
@@ -134,16 +162,6 @@ export function Acompanhar({
             </div>
           </div>
         </div>
-      )}
-
-      {modo === "nao" && !perguntar && (
-        <button
-          type="button"
-          className="fixed bottom-4 left-4 z-30 min-h-11 rounded-full border border-[var(--line)] bg-[var(--paper)] px-4 text-sm shadow-card"
-          onClick={() => setPerguntar(true)}
-        >
-          {copy.acompanharDeNovo}
-        </button>
       )}
 
       {popup && modo === "popup" && (

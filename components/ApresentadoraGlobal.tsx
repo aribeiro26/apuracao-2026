@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { carregarPainel } from "@/app/acoes";
+import { Acompanhar } from "@/components/Acompanhar";
 import { Apresentador } from "@/components/Apresentador";
 import { primeiroNome, textoDaFrente } from "@/components/DisputaVisual";
 import { LocaleProvider } from "@/components/LocaleProvider";
@@ -16,6 +17,7 @@ import type { Tema } from "@/lib/tema";
 export function ApresentadoraGlobal({ locale, tema }: { locale: Locale; tema: Tema }) {
   return (
     <LocaleProvider initial={locale} temaInicial={tema}>
+      <Acompanhar />
       <QuandoFaltar />
     </LocaleProvider>
   );
