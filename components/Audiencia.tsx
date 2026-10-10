@@ -223,9 +223,11 @@ export function BotaoCompartilhar() {
 
   async function compartilhar() {
     const url = `${SITE}/enquete`;
-    // O Facebook ignora o campo url e publica só o texto. A URL sozinha vira o link.
-    const dados = { title: copy.compartilharEnquete, text: url, url };
     if (typeof navigator.share === "function") {
+      // O iPhone e o WhatsApp juntam title, text e url. Três campos iguais viram três cópias.
+      // O Facebook ignora url e só publica o texto, então nele o link vai no texto.
+      const facebook = /FBAN|FBAV/i.test(navigator.userAgent);
+      const dados: ShareData = facebook ? { text: url } : { url };
       try {
         await navigator.share(dados);
         return;
