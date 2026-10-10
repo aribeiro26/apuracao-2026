@@ -95,18 +95,6 @@ export function MonitorPainel({
             )}
           </section>
 
-          <section className="mt-8" aria-label={copy.legenda}>
-            <h2 className="font-serif text-2xl">{copy.legenda}</h2>
-            <ul className="mt-3 space-y-3">
-              {copy.regras.map((regra) => (
-                <li key={regra.tipo}>
-                  <p className="text-sm font-medium">{regra.titulo}</p>
-                  <p className="text-sm text-[var(--muted)]">{regra.texto}</p>
-                </li>
-              ))}
-            </ul>
-          </section>
-
           <section className="mt-8" aria-label={copy.historico}>
             <h2 className="font-serif text-2xl">{copy.historico}</h2>
             <div className="mt-3 overflow-x-auto">
@@ -143,19 +131,7 @@ export function MonitorPainel({
             </div>
           </section>
         </>
-      ) : (
-        <section className="mt-8" aria-label={copy.legenda}>
-          <h2 className="font-serif text-2xl">{copy.legenda}</h2>
-          <ul className="mt-3 space-y-3">
-            {copy.regras.map((regra) => (
-              <li key={regra.tipo}>
-                <p className="text-sm font-medium">{regra.titulo}</p>
-                <p className="text-sm text-[var(--muted)]">{regra.texto}</p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      ) : null}
     </div>
   );
 }
