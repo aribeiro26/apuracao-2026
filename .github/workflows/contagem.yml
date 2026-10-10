@@ -1,0 +1,26 @@
+name: Contagem
+
+on:
+  schedule:
+    # 25/10 em Brasília, das 00:00 às 23:30. O relógio do GitHub é UTC.
+    - cron: "*/30 3-23 25 10 *"
+    - cron: "*/30 0-2 26 10 *"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  gravar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gravar a amostra da contagem
+        run: |
+          token="$(curl -fsS \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=apuracao-contagem")"
+          valor="$(printf '%s' "$token" | jq -r .value)"
+          curl --fail-with-body --silent --show-error --max-time 70 \
+            -H "Authorization: Bearer $valor" \
+            https://apuracao-2026-enquete.vercel.app/api/cron/contagem

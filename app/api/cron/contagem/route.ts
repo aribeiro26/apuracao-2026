@@ -1,11 +1,10 @@
+import { cronAutorizado } from "@/lib/cron-auth";
 import { gravarContagem } from "@/lib/historico";
 
 export const maxDuration = 60;
 
 export async function GET(pedido: Request) {
-  const segredo = process.env.CRON_SECRET;
-  const enviado = pedido.headers.get("authorization");
-  if (!segredo || enviado !== `Bearer ${segredo}`) {
+  if (!(await cronAutorizado(pedido.headers.get("authorization")))) {
     return Response.json({ ok: false }, { status: 401 });
   }
   try {
