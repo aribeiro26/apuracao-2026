@@ -147,6 +147,9 @@ export function BotoesVoto({
         <a href="/analytics#votos" className="inline-flex min-h-11 items-center text-sm underline">
           {copy.graficoVotos}
         </a>
+        <a href="/monitor" className="inline-flex min-h-11 items-center text-sm underline">
+          {copy.monitor}
+        </a>
       </div>
     </div>
   );
@@ -311,6 +314,9 @@ export function EnqueteTela({
     <div className="fixed inset-0 z-50 flex flex-col bg-[var(--bg)] p-4" role="dialog" aria-modal="true" aria-label={copy.enqueteToque}>
       <div className="flex items-center justify-between gap-3">
         <BotaoCompartilhar />
+        <a href="/monitor" className="inline-flex min-h-11 items-center text-sm underline">
+          {copy.monitor}
+        </a>
         <button type="button" className="min-h-11 px-2 text-sm underline" onClick={onFechar}>
           {copy.fechar}
         </button>
@@ -328,6 +334,9 @@ export function EnqueteTela({
             <button type="button" className="min-h-11 text-sm underline" onClick={onFechar}>
               {copy.enqueteSeguir}
             </button>
+            <a href="/monitor" className="inline-flex min-h-11 items-center text-sm underline">
+              {copy.monitor}
+            </a>
           </div>
         </div>
       ) : !pronto ? (

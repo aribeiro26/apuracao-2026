@@ -158,6 +158,7 @@ export type Copy = {
   vitoria: (nome: string) => string;
   ouvirApito: string;
   eleitos: string;
+  monitor: string;
   eleitosTitulo: string;
   eleitosNota: string;
   eleitosVazio: string;
@@ -385,6 +386,7 @@ const ptBR: Copy = {
   vitoria: (nome) => `${nome} está eleito`,
   ouvirApito: "Ouvir o apito",
   eleitos: "Eleitos",
+  monitor: "Monitor da apuração",
   eleitosTitulo: "Quem já está eleito",
   eleitosNota: "Lista geral de presidente e governadores já eleitos, no 1º e no 2º turno.",
   eleitosVazio: "Ainda não há eleito neste turno.",
@@ -594,6 +596,7 @@ const ptPT: Copy = {
   ouvirApito: "Ouvir o apito",
   buscarSoma: "Pesquisar na soma",
   eleitos: "Eleitos",
+  monitor: "Monitor da apuração",
   eleitosTitulo: "Quem já está eleito",
   eleitosNota: "Lista geral de presidente e governadores já eleitos, na primeira e na segunda volta.",
   eleitosVazio: "Ainda não há eleito nesta volta.",
@@ -821,6 +824,7 @@ const es: Copy = {
   vitoria: (nome) => `${nome} está elegido`,
   ouvirApito: "Escuchar el silbato",
   eleitos: "Elegidos",
+  monitor: "Monitor del escrutinio",
   eleitosTitulo: "Quién ya está elegido",
   eleitosNota: "Lista general del presidente y de los gobernadores ya elegidos, en la primera y en la segunda vuelta.",
   eleitosVazio: "Todavía no hay elegido en esta vuelta.",
@@ -1048,6 +1052,7 @@ const en: Copy = {
   vitoria: (nome) => `${nome} is elected`,
   ouvirApito: "Play the whistle",
   eleitos: "Elected",
+  monitor: "Count monitor",
   eleitosTitulo: "Who is already elected",
   eleitosNota: "One list of the president and every governor already elected, in the first round and in the runoff.",
   eleitosVazio: "Nobody is elected in this round yet.",

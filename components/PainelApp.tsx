@@ -326,6 +326,9 @@ export function PainelApp() {
           <SeletorIdioma />
           <BotaoTema />
           <BotaoDoar />
+          <a href="/monitor" className="inline-flex min-h-11 items-center rounded-full border border-[var(--line)] bg-[var(--paper)] px-3 text-sm">
+            {copy.monitor}
+          </a>
           <p className="inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--paper)] px-3 py-2 text-sm" role="status">
             <span className={`pulso h-2.5 w-2.5 rounded-full ${aoVivo ? "animate-pulse bg-[var(--green)]" : "bg-[var(--mark)]"}`} aria-hidden="true" />
             {aoVivo ? copy.live : copy.waiting}
@@ -559,7 +562,7 @@ export function PainelApp() {
               {nomeLocale(item)}
             </a>
           ))}
-          <a href="/monitor">Monitor</a>
+          <a href="/monitor">{copy.monitor}</a>
         </nav>
       </footer>
       <MarcaPresenca />
