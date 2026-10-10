@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DIA_ELEICAO, eDiaDaEleicao, slotDe } from "./amostra.ts";
+import { DIA_ELEICAO, eDiaDaEleicao, slotDe } from "./amostra";
 
 test("a amostra cai no bloco de 30 minutos em Brasília", () => {
   assert.equal(slotDe(Date.parse("2026-10-25T17:10:00-03:00")), "2026-10-25T17:00");

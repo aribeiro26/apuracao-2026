@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cronAutorizado } from "./cron-auth.ts";
+import { cronAutorizado } from "./cron-auth";
 
 test("um token que não é do GitHub não grava", async () => {
   assert.equal(await cronAutorizado(null), false);
