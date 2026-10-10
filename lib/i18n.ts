@@ -110,6 +110,8 @@ export type Copy = {
   opiniaoAberta: (nome: string) => string;
   apresentador: string;
   apresentadorOuvir: string;
+  voz: string;
+  vozNota: string;
   perguntasProntas: string;
   perguntaLivre: string;
   perguntaLivreNota: string;
@@ -336,6 +338,8 @@ const ptBR: Copy = {
   opiniaoAberta: (nome) => `O placar ainda pode virar. Neste instante, eu fico com ${nome}.`,
   apresentador: "Apresentadora",
   apresentadorOuvir: "Ouvir o placar",
+  voz: "Voz",
+  vozNota: "A voz é a do celular. Não dá para gravar a sua aqui.",
   perguntasProntas: "Perguntas",
   perguntaLivre: "Pergunte o que quiser",
   perguntaLivreNota: "Pergunta livre. Ela pode consultar a web e cita o veículo. A apuração desta tela continua sendo a do TSE.",
@@ -543,6 +547,8 @@ const ptPT: Copy = {
   opiniaoAberta: (nome) => `O placar ainda pode virar. Neste instante, fico com ${nome}.`,
   apresentador: "Apresentadora",
   apresentadorOuvir: "Ouvir o placar",
+  voz: "Voz",
+  vozNota: "A voz é a do celular. Não dá para gravar a sua aqui.",
   perguntasProntas: "Perguntas",
   perguntaLivre: "Pergunte o que quiser",
   perguntaLivreNota: "Pergunta livre. Ela pode consultar a web e cita o veículo. O apuramento deste ecrã continua a ser o do TSE.",
@@ -770,6 +776,8 @@ const es: Copy = {
   opiniaoAberta: (nome) => `El marcador todavía puede darse la vuelta. Ahora mismo, me quedo con ${nome}.`,
   apresentador: "Presentadora",
   apresentadorOuvir: "Escuchar el marcador",
+  voz: "Voz",
+  vozNota: "La voz es la del teléfono. No se puede grabar la tuya aquí.",
   perguntasProntas: "Preguntas",
   perguntaLivre: "Pregunta lo que quieras",
   perguntaLivreNota: "Pregunta libre. Puede consultar la web y cita el medio. El escrutinio de esta pantalla sigue siendo el del TSE.",
@@ -996,6 +1004,8 @@ const en: Copy = {
   opiniaoAberta: (nome) => `This can still turn. Right now, I go with ${nome}.`,
   apresentador: "Anchor",
   apresentadorOuvir: "Hear the count",
+  voz: "Voice",
+  vozNota: "This is the phone's voice. Yours can't be recorded here.",
   perguntasProntas: "Questions",
   perguntaLivre: "Ask anything",
   perguntaLivreNota: "Free question. She can look it up on the web and names the outlet. The count on this screen stays the TSE count.",

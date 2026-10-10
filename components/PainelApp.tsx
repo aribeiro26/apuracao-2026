@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { carregarPainel, lerLoteMunicipios, lerMunicipio, municipiosDoEstado } from "@/app/acoes";
 import { Apresentador } from "@/components/Apresentador";
+import { usePresenca } from "@/components/Presenca";
 import { BotoesVoto, CaixaVisitantes, EnqueteTela, useAudiencia } from "@/components/Audiencia";
 import { DataTurno } from "@/components/DataTurno";
 import { Perguntas } from "@/components/Perguntas";
@@ -560,6 +561,7 @@ export function PainelApp() {
           ))}
         </nav>
       </footer>
+      <MarcaPresenca />
       <Apresentador linhas={falas} perguntas={perguntas} />
     </div>
     </>
@@ -778,6 +780,15 @@ function FotoEleito({ nome, fotos }: { nome: string; fotos: string[] }) {
       onError={() => setIndice((atual) => atual + 1)}
     />
   );
+}
+
+function MarcaPresenca() {
+  const { marcar } = usePresenca();
+  useLayoutEffect(() => {
+    marcar(true);
+    return () => marcar(false);
+  }, [marcar]);
+  return null;
 }
 
 function destacar(resultado: Resultado): Candidato[] {

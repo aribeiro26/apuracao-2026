@@ -6,6 +6,7 @@ import { useI18n } from "@/components/LocaleProvider";
 import { intlLocale } from "@/lib/locale";
 
 const INTERVALO = 7000;
+const CHAVE_VOZ = "apresentadora-voz";
 
 export function Apresentador({
   linhas,
@@ -21,10 +22,29 @@ export function Apresentador({
   const [indice, setIndice] = useState(0);
   const [escolha, setEscolha] = useState<string | null>(null);
   const [acenar, setAcenar] = useState(false);
+  const [vozes, setVozes] = useState<SpeechSynthesisVoice[]>([]);
+  const [voz, setVoz] = useState("");
   const resposta = perguntas.find((item) => item.id === escolha)?.resposta;
   const fala = resposta || linhas[indice] || linhas[0] || "";
   const pular = useRef(false);
   const segurar = useRef(false);
+
+  useEffect(() => {
+    const ler = () => {
+      const lista = window.speechSynthesis.getVoices().filter((item) => item.lang.toLowerCase().startsWith(locale.slice(0, 2)));
+      setVozes(lista);
+      let salva = "";
+      try {
+        salva = localStorage.getItem(CHAVE_VOZ) ?? "";
+      } catch {
+        salva = "";
+      }
+      setVoz(lista.some((item) => item.voiceURI === salva) ? salva : (escolherVoz(intlLocale(locale))?.voiceURI ?? ""));
+    };
+    ler();
+    window.speechSynthesis.addEventListener("voiceschanged", ler);
+    return () => window.speechSynthesis.removeEventListener("voiceschanged", ler);
+  }, [locale]);
 
   useEffect(() => {
     setIndice(0);
@@ -80,7 +100,7 @@ export function Apresentador({
     return (
       <button
         type="button"
-        className="fixed bottom-4 right-4 z-30 grid h-16 w-16 place-items-center overflow-hidden rounded-full bg-[#d7e6f8] shadow-card"
+        className="fixed bottom-4 right-4 z-[80] grid h-16 w-16 place-items-center overflow-hidden rounded-full bg-[#f3d7c4] shadow-card"
         aria-label={copy.apresentadorOuvir}
         onClick={() => {
           setAberto(true);
@@ -93,7 +113,7 @@ export function Apresentador({
   }
 
   return (
-    <aside className="fixed bottom-4 right-4 z-30 max-h-[calc(100vh-2rem)] w-[min(24rem,calc(100%-2rem))] overflow-y-auto rounded-3xl border border-[var(--line)] bg-[var(--paper)] shadow-card">
+    <aside className="fixed bottom-4 right-4 z-[80] max-h-[calc(100vh-2rem)] w-[min(24rem,calc(100%-2rem))] overflow-y-auto rounded-3xl border border-[var(--line)] bg-[var(--paper)] shadow-card">
       <div className="flex items-center justify-between gap-3 bg-[var(--faixa)] px-4 py-2 text-[var(--faixa-texto)]">
         <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide">
           <span className={`h-2 w-2 rounded-full bg-red-500 ${falando ? "pulso animate-pulse" : ""}`} aria-hidden />
@@ -106,7 +126,7 @@ export function Apresentador({
       <div className="flex items-start gap-3 p-4">
         <button
           type="button"
-          className="grid h-24 w-20 shrink-0 place-items-center rounded-2xl bg-[#d7e6f8]"
+          className="grid h-24 w-20 shrink-0 place-items-center rounded-2xl bg-[#f6e4d8]"
           aria-label={copy.ativarAudio}
           onClick={() => falarAgora()}
         >
@@ -172,6 +192,34 @@ export function Apresentador({
           {audio ? copy.pararAudio : copy.ativarAudio}
         </button>
       </div>
+      {vozes.length > 0 && (
+        <div className="px-4 pb-3">
+          <label className="block text-xs text-[var(--muted)]" htmlFor="voz-apresentadora">
+            {copy.voz}
+          </label>
+          <select
+            id="voz-apresentadora"
+            className="mt-1 w-full rounded-2xl border border-[var(--line)] bg-[var(--paper)] px-3 text-sm"
+            value={voz}
+            onChange={(evento) => {
+              const proxima = evento.target.value;
+              setVoz(proxima);
+              try {
+                localStorage.setItem(CHAVE_VOZ, proxima);
+              } catch {
+                /* o celular pode bloquear o armazenamento */
+              }
+            }}
+          >
+            {vozes.map((item) => (
+              <option key={item.voiceURI} value={item.voiceURI}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-[var(--muted)]">{copy.vozNota}</p>
+        </div>
+      )}
     </aside>
   );
 }
@@ -188,7 +236,9 @@ function dizer(
   const frase = new SpeechSynthesisUtterance(texto);
   const idioma = intlLocale(locale);
   frase.lang = idioma;
-  const voz = sintese.getVoices().find((item) => item.lang.toLowerCase().startsWith(idioma.slice(0, 2).toLowerCase()));
+  frase.rate = 0.96;
+  frase.pitch = 1.02;
+  const voz = escolherVoz(idioma);
   if (voz) frase.voice = voz;
   let espera = 0;
   frase.onstart = () => setFalando(true);
@@ -203,4 +253,21 @@ function dizer(
     sintese.cancel();
     setFalando(false);
   };
+}
+
+function escolherVoz(idioma: string): SpeechSynthesisVoice | undefined {
+  const prefixo = idioma.slice(0, 2).toLowerCase();
+  const voces = window.speechSynthesis.getVoices().filter((item) => item.lang.toLowerCase().startsWith(prefixo));
+  let salva = "";
+  try {
+    salva = localStorage.getItem(CHAVE_VOZ) ?? "";
+  } catch {
+    salva = "";
+  }
+  return (
+    voces.find((item) => item.voiceURI === salva) ??
+    voces.find((item) => /luciana|francisca|maria|fernanda|vitória|vitoria|google português do brasil/i.test(item.name)) ??
+    voces.find((item) => item.lang.toLowerCase() === idioma.toLowerCase()) ??
+    voces[0]
+  );
 }

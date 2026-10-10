@@ -6,6 +6,8 @@ import { intlLocale } from "@/lib/locale";
 import { resolveLocale } from "@/lib/request-locale";
 import { resolveTema } from "@/lib/request-tema";
 import { SITE } from "@/lib/site";
+import { ApresentadoraGlobal } from "@/components/ApresentadoraGlobal";
+import { PresencaProvider } from "@/components/Presenca";
 import "./globals.css";
 
 const sans = Source_Sans_3({ subsets: ["latin"], variable: "--font-sans" });
@@ -88,7 +90,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang={idioma} className={tema === "escuro" ? "escuro" : undefined}>
       <body className={`${sans.variable} ${serif.variable} font-sans antialiased`}>
         <script type="application/ld+json" nonce={nonce} dangerouslySetInnerHTML={{ __html: json }} />
-        {children}
+        <PresencaProvider>
+          {children}
+          <ApresentadoraGlobal locale={locale} tema={tema} />
+        </PresencaProvider>
       </body>
     </html>
   );
