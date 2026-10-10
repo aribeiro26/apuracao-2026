@@ -19,7 +19,6 @@ import { rastreioVisivel } from "@/lib/texto";
 import { iniciais, numero, percentual, razao } from "@/lib/format";
 import { intlLocale, LOCALES, nomeLocale } from "@/lib/locale";
 import { diasParaEleicao, faseEleicao } from "@/lib/eleicao";
-import { montarTela } from "@/lib/tela-ia";
 import { UFS, UFS_PRESIDENTE, nomeLocal } from "@/lib/uf";
 
 type Visao = "tudo" | "presidente" | "governador" | "eleitos";
@@ -296,14 +295,6 @@ export function PainelApp() {
     });
   }, [placa, nacional, municipios, mun, copy, idioma, visao, governadorUf.cidades, presidenteUf.cidades, painel]);
 
-  const tela = useMemo(() => {
-    const alvo = placa && parDaDisputa(placa.candidatos) ? placa : nacional;
-    const nomeCidade = municipios.find((item) => item.codigo === mun)?.nome;
-    const lugarNome = nomeCidade || alvo?.nomeUf || "";
-    const lugar = alvo ? (alvo.cargo === "governador" ? copy.governadorEm(lugarNome) : copy.presidenteEm(lugarNome)) : "";
-    return montarTela(alvo, lugar);
-  }, [placa, nacional, municipios, mun, copy]);
-
   return (
     <>
     <a href="#conteudo" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-[var(--paper)] focus:px-4 focus:py-2">
@@ -569,7 +560,7 @@ export function PainelApp() {
           ))}
         </nav>
       </footer>
-      <Apresentador linhas={falas} perguntas={perguntas} tela={tela} />
+      <Apresentador linhas={falas} perguntas={perguntas} />
     </div>
     </>
   );
