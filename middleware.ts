@@ -88,7 +88,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // chama-festa: app de outro projeto (rewrite no next.config); a CSP com nonce
-  // daqui bloquearia os scripts de lá.
-  matcher: ["/((?!api|_next/static|_next/image|icon.svg|robots.txt|sitemap.xml|opengraph-image|chama-festa).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|icon.svg|robots.txt|sitemap.xml|opengraph-image).*)"],
 };

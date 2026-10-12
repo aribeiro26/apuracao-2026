@@ -1,10 +1,6 @@
 import path from "path";
 import type { NextConfig } from "next";
 
-// /chama-festa é outro app (projeto front-chama na Vercel), servido aqui por
-// multi-zones: as páginas e os assets (/chama-festa-static) vêm de lá.
-const CHAMA_FESTA = (process.env.CHAMA_FESTA_URL ?? "https://front-chama.vercel.app").replace(/\/+$/, "");
-
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
@@ -13,31 +9,17 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       bodySizeLimit: "4kb",
-      allowedOrigins: ["festalugar.com.br", "www.festalugar.com.br", "apuracao-2026-enquete.vercel.app"],
+      allowedOrigins: ["apuracao-2026-enquete.vercel.app"],
     },
   },
   async redirects() {
     return [
-      // Endereço oficial é o www (www.festalugar.com.br/chama-festa).
-      {
-        source: "/:path*",
-        has: [{ type: "host", value: "festalugar.com.br" }],
-        destination: "https://www.festalugar.com.br/:path*",
-        permanent: true,
-      },
       {
         source: "/:path*",
         has: [{ type: "host", value: "apuracao-2026-alexetecribeiro-9013.vercel.app" }],
         destination: "https://apuracao-2026-enquete.vercel.app/:path*",
         permanent: true,
       },
-    ];
-  },
-  async rewrites() {
-    return [
-      { source: "/chama-festa", destination: `${CHAMA_FESTA}/chama-festa` },
-      { source: "/chama-festa/:path*", destination: `${CHAMA_FESTA}/chama-festa/:path*` },
-      { source: "/chama-festa-static/:path*", destination: `${CHAMA_FESTA}/chama-festa-static/:path*` },
     ];
   },
   async headers() {
