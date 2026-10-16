@@ -16,7 +16,7 @@ export function Apresentador({
   perguntas: { id: string; pergunta: string; resposta: string }[];
 }) {
   const { copy, locale } = useI18n();
-  const [aberto, setAberto] = useState(true);
+  const [aberto, setAberto] = useState(false);
   const [audio, setAudio] = useState(false);
   const [falando, setFalando] = useState(false);
   const [indice, setIndice] = useState(0);
